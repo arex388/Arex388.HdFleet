@@ -50,5 +50,5 @@ public static class ServiceCollectionExtensions {
 	private static void AddHdFleetHttpClient(
 		IServiceCollection services) => services.AddHttpClient(nameof(IHdFleetClient), hc => {
 			hc.BaseAddress = _baseAddress;
-		});
+		}).AddHttpMessageHandler(static () => new HdFleetRetryHandler());
 }
