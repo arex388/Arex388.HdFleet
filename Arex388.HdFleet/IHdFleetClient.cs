@@ -62,6 +62,21 @@ public interface IHdFleetClient {
 		CancellationToken cancellationToken = default);
 
 	/// <summary>
+	/// Returns a ProMiles mileage report for a vehicle over a date range.
+	/// </summary>
+	/// <remarks>
+	/// Uniquely in this API, the report dates are plain calendar dates on the
+	/// wire (<c>yyyy-MM-dd</c>) — the time component of the request's
+	/// <c>DateTime</c> values is ignored.
+	/// </remarks>
+	/// <param name="request">The <see cref="GetProMilesReport.Request"/> request.</param>
+	/// <param name="cancellationToken">The cancellation token.</param>
+	/// <returns>The <see cref="GetProMilesReport.Response"/> response.</returns>
+	Task<GetProMilesReport.Response> GetProMilesReportAsync(
+		GetProMilesReport.Request request,
+		CancellationToken cancellationToken = default);
+
+	/// <summary>
 	/// Returns a vehicle.
 	/// </summary>
 	/// <remarks>
@@ -218,6 +233,44 @@ public interface IHdFleetClient {
 	/// <returns>The <see cref="ListLocationHistory.Response"/> response.</returns>
 	Task<ListLocationHistory.Response> ListLocationHistoryAsync(
 		ListLocationHistory.Request request,
+		CancellationToken cancellationToken = default);
+
+	/// <summary>
+	/// Returns the ProMiles customers.
+	/// </summary>
+	/// <param name="cancellationToken">The cancellation token.</param>
+	/// <returns>The <see cref="ListProMilesCustomers.Response"/> response.</returns>
+	Task<ListProMilesCustomers.Response> ListProMilesCustomersAsync(
+		CancellationToken cancellationToken = default);
+
+	/// <summary>
+	/// Returns the ProMiles customers.
+	/// </summary>
+	/// <param name="request">The <see cref="ListProMilesCustomers.Request"/> request.</param>
+	/// <param name="cancellationToken">The cancellation token.</param>
+	/// <returns>The <see cref="ListProMilesCustomers.Response"/> response.</returns>
+	Task<ListProMilesCustomers.Response> ListProMilesCustomersAsync(
+		ListProMilesCustomers.Request request,
+		CancellationToken cancellationToken = default);
+
+	/// <summary>
+	/// Returns a ProMiles customer's vehicles.
+	/// </summary>
+	/// <param name="customerId">The ProMiles customer's id.</param>
+	/// <param name="cancellationToken">The cancellation token.</param>
+	/// <returns>The <see cref="ListProMilesVehicles.Response"/> response.</returns>
+	Task<ListProMilesVehicles.Response> ListProMilesVehiclesAsync(
+		int customerId,
+		CancellationToken cancellationToken = default);
+
+	/// <summary>
+	/// Returns a ProMiles customer's vehicles.
+	/// </summary>
+	/// <param name="request">The <see cref="ListProMilesVehicles.Request"/> request.</param>
+	/// <param name="cancellationToken">The cancellation token.</param>
+	/// <returns>The <see cref="ListProMilesVehicles.Response"/> response.</returns>
+	Task<ListProMilesVehicles.Response> ListProMilesVehiclesAsync(
+		ListProMilesVehicles.Request request,
 		CancellationToken cancellationToken = default);
 
 	/// <summary>

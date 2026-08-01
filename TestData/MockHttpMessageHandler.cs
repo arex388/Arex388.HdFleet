@@ -79,6 +79,18 @@ internal sealed class MockHttpMessageHandler :
 			return "drivers.json";
 		}
 
+		if (cleanPath == "reports/promiles") {
+			return "promiles-report.json";
+		}
+
+		if (cleanPath == "reports/promiles/customers") {
+			return "promiles-customers.json";
+		}
+
+		if (cleanPath == "reports/promiles/vehicles") {
+			return "promiles-vehicles.json";
+		}
+
 		return cleanPath.Replace('/', '-') + ".json";
 	}
 }

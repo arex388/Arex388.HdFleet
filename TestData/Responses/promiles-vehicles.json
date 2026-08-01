@@ -1,0 +1,15 @@
+{
+  "data": [
+    {
+      "externalVehicleId": "V-1",
+      "displayName": "Truck 1",
+      "vin": "1FTFW1ET5DFC10312"
+    },
+    {
+      "externalVehicleId": "V-2",
+      "displayName": null,
+      "vin": null
+    }
+  ],
+  "nextCursor": null
+}

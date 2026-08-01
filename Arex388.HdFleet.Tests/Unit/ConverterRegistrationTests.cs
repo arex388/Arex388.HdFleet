@@ -28,6 +28,9 @@ public sealed class ConverterRegistrationTests {
 	//	namespace, not the model.
 	[InlineData(typeof(Arex388.HdFleet.Integration))]
 	[InlineData(typeof(Location))]
+	[InlineData(typeof(ProMilesCustomer))]
+	[InlineData(typeof(ProMilesReportRow))]
+	[InlineData(typeof(ProMilesVehicle))]
 	[InlineData(typeof(Vehicle))]
 	public void EveryPublicModelType_HasARegisteredConverter(
 		Type modelType) => AssertRegistered(modelType);

@@ -25,11 +25,17 @@ internal sealed class HdFleetClient(
 			new IntegrationJsonConverter(),
 			new LocationJsonConverter(),
 			new PageJsonConverterFactory(),
+			new ProMilesCustomerJsonConverter(),
+			new ProMilesReportRowJsonConverter(),
+			new ProMilesVehicleJsonConverter(),
 			new VehicleJsonConverter()
 		}
 	};
 
 	private readonly IValidator<CreateBackfill.Request> _createBackfillRequestValidator = services.GetRequiredService<IValidator<CreateBackfill.Request>>();
+	private readonly IValidator<GetProMilesReport.Request> _getProMilesReportRequestValidator = services.GetRequiredService<IValidator<GetProMilesReport.Request>>();
+	private readonly IValidator<ListProMilesCustomers.Request> _listProMilesCustomersRequestValidator = services.GetRequiredService<IValidator<ListProMilesCustomers.Request>>();
+	private readonly IValidator<ListProMilesVehicles.Request> _listProMilesVehiclesRequestValidator = services.GetRequiredService<IValidator<ListProMilesVehicles.Request>>();
 	private readonly IValidator<ListBackfillSlices.Request> _listBackfillSlicesRequestValidator = services.GetRequiredService<IValidator<ListBackfillSlices.Request>>();
 	private readonly IValidator<ListDrivers.Request> _listDriversRequestValidator = services.GetRequiredService<IValidator<ListDrivers.Request>>();
 	private readonly IValidator<ListEvents.Request> _listEventsRequestValidator = services.GetRequiredService<IValidator<ListEvents.Request>>();
@@ -68,6 +74,13 @@ internal sealed class HdFleetClient(
 		CancellationToken cancellationToken = default) => SendAsync(request, null, static (Page<Event>? page) => new GetBackfillEventsPage.Response {
 			Events = page?.Data ?? [],
 			NextCursor = page?.NextCursor
+		}, null, cancellationToken);
+
+	public Task<GetProMilesReport.Response> GetProMilesReportAsync(
+		GetProMilesReport.Request request,
+		CancellationToken cancellationToken = default) => SendAsync(request, _getProMilesReportRequestValidator, static (Page<ProMilesReportRow>? page) => new GetProMilesReport.Response {
+			NextCursor = page?.NextCursor,
+			Rows = page?.Data ?? []
 		}, null, cancellationToken);
 
 	public Task<GetVehicle.Response> GetVehicleAsync(
@@ -150,6 +163,29 @@ internal sealed class HdFleetClient(
 		}, request.Cursor is null
 			? FreshPollFloors.LocationHistory
 			: (TimeSpan?)null, cancellationToken);
+
+	public Task<ListProMilesCustomers.Response> ListProMilesCustomersAsync(
+		CancellationToken cancellationToken = default) => ListProMilesCustomersAsync(ListProMilesCustomers.Request.Default, cancellationToken);
+
+	public Task<ListProMilesCustomers.Response> ListProMilesCustomersAsync(
+		ListProMilesCustomers.Request request,
+		CancellationToken cancellationToken = default) => SendAsync(request, _listProMilesCustomersRequestValidator, static (Page<ProMilesCustomer>? page) => new ListProMilesCustomers.Response {
+			Customers = page?.Data ?? [],
+			NextCursor = page?.NextCursor
+		}, null, cancellationToken);
+
+	public Task<ListProMilesVehicles.Response> ListProMilesVehiclesAsync(
+		int customerId,
+		CancellationToken cancellationToken = default) => ListProMilesVehiclesAsync(new ListProMilesVehicles.Request {
+			CustomerId = customerId
+		}, cancellationToken);
+
+	public Task<ListProMilesVehicles.Response> ListProMilesVehiclesAsync(
+		ListProMilesVehicles.Request request,
+		CancellationToken cancellationToken = default) => SendAsync(request, _listProMilesVehiclesRequestValidator, static (Page<ProMilesVehicle>? page) => new ListProMilesVehicles.Response {
+			NextCursor = page?.NextCursor,
+			Vehicles = page?.Data ?? []
+		}, null, cancellationToken);
 
 	public Task<ListVehicles.Response> ListVehiclesAsync(
 		CancellationToken cancellationToken = default) => ListVehiclesAsync(ListVehicles.Request.Default, cancellationToken);

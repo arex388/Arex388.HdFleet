@@ -1,0 +1,21 @@
+{
+  "data": [
+    {
+      "vehicleName": "Truck 1",
+      "reportDate": "2026-06-01T00:00:00Z",
+      "firstLocationAt": "2026-06-01T06:00:00Z",
+      "lastLocationAt": "2026-06-01T18:30:00Z",
+      "pointCount": 480,
+      "distanceMiles": "312.7"
+    },
+    {
+      "vehicleName": null,
+      "reportDate": null,
+      "firstLocationAt": null,
+      "lastLocationAt": null,
+      "pointCount": 0,
+      "distanceMiles": null
+    }
+  ],
+  "nextCursor": null
+}
