@@ -68,6 +68,99 @@ public static class HdFleetClientExtensions {
 		}
 
 		/// <summary>
+		/// Streams the account's drivers, walking cursor pages until exhaustion.
+		/// </summary>
+		/// <param name="cancellationToken">The cancellation token.</param>
+		/// <returns>An async stream of <c>Driver</c>.</returns>
+		/// <remarks>
+		/// The stream ends silently if a page request fails — a truncated stream is
+		/// indistinguishable from an exhausted one here. Use
+		/// <see cref="IHdFleetClient.ListDriversAsync(ListDrivers.Request, CancellationToken)"/>
+		/// when error visibility matters. Cursor continuation pages bypass the
+		/// fresh-poll gate. Walks at most 100 pages, then throws
+		/// <see cref="InvalidOperationException"/> — a server returning a cursor
+		/// forever must not spin.
+		/// </remarks>
+		public async IAsyncEnumerable<Driver> StreamDriversAsync(
+			[EnumeratorCancellation]
+			CancellationToken cancellationToken = default) {
+			string? cursor = null;
+			var pages = 0;
+
+			do {
+				var response = await client.ListDriversAsync(new ListDrivers.Request {
+					Cursor = cursor
+				}, cancellationToken).ConfigureAwait(false);
+
+				if (!response.Success) {
+					yield break;
+				}
+
+				foreach (var driver in response.Drivers) {
+					yield return driver;
+				}
+
+				cursor = response.NextCursor;
+				pages++;
+
+				if (pages >= PageCap && cursor.HasValue()) {
+					throw new InvalidOperationException("HD Fleet returned a pagination cursor after " + PageCap + " pages — aborting the walk to avoid an unbounded loop.");
+				}
+			} while (cursor.HasValue());
+		}
+
+		/// <summary>
+		/// Streams the location history for the account's vehicles within one
+		/// bounded time window, walking cursor pages until exhaustion.
+		/// </summary>
+		/// <param name="from">The window's start timestamp.</param>
+		/// <param name="to">The window's end timestamp. No more than 15 minutes after <paramref name="from"/>.</param>
+		/// <param name="cancellationToken">The cancellation token.</param>
+		/// <returns>An async stream of <c>Location</c>.</returns>
+		/// <remarks>
+		/// Walks cursors within the given window only — it never advances the
+		/// window; a day of history belongs to the backfills workflow, not this
+		/// endpoint. The stream ends silently if a page request fails — a
+		/// truncated stream is indistinguishable from an exhausted one here. Use
+		/// <see cref="IHdFleetClient.ListLocationHistoryAsync(ListLocationHistory.Request, CancellationToken)"/>
+		/// when error visibility matters. Cursor continuation pages bypass the
+		/// fresh-poll gate. Walks at most 100 pages, then throws
+		/// <see cref="InvalidOperationException"/> — a server returning a cursor
+		/// forever must not spin.
+		/// </remarks>
+		public async IAsyncEnumerable<Location> StreamLocationHistoryAsync(
+			DateTimeOffset from,
+			DateTimeOffset to,
+			[EnumeratorCancellation]
+			CancellationToken cancellationToken = default) {
+			string? cursor = null;
+			var pages = 0;
+
+			do {
+				var response = await client.ListLocationHistoryAsync(new ListLocationHistory.Request {
+					Cursor = cursor,
+					From = from,
+					To = to
+				}, cancellationToken).ConfigureAwait(false);
+
+				if (!response.Success) {
+					yield break;
+				}
+
+				foreach (var location in response.Locations) {
+					yield return location;
+				}
+
+				cursor = response.NextCursor;
+				pages++;
+
+				if (pages >= PageCap && cursor.HasValue()) {
+					throw new InvalidOperationException("HD Fleet returned a pagination cursor after " + PageCap + " pages — aborting the walk to avoid an unbounded loop.");
+				}
+			} while (cursor.HasValue());
+		}
+
+		/// <summary>
 		/// Streams the latest locations for the account's vehicles, walking cursor
 		/// pages until exhaustion.
 		/// </summary>

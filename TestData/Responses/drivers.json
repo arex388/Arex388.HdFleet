@@ -1,0 +1,24 @@
+{
+  "data": [
+    {
+      "externalDriverId": "D-1",
+      "displayName": "Jamie Driver",
+      "licenseNumber": "D123456789",
+      "licenseState": "AZ",
+      "driverPhone": "+1-602-555-0100",
+      "driverEmail": "jamie@example.com",
+      "updatedAt": "2026-07-31T12:00:00Z",
+      "unknownProperty": { "nested": [true] }
+    },
+    {
+      "externalDriverId": "D-2",
+      "displayName": null,
+      "licenseNumber": null,
+      "licenseState": null,
+      "driverPhone": null,
+      "driverEmail": null,
+      "updatedAt": null
+    }
+  ],
+  "nextCursor": null
+}

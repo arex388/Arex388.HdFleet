@@ -15,6 +15,7 @@ internal sealed class HdFleetClient(
 	IHdFleetClient {
 	private static readonly JsonSerializerOptions _jsonSerializerOptions = new() {
 		Converters = {
+			new DriverJsonConverter(),
 			new ErrorEnvelopeJsonConverter(),
 			new LocationJsonConverter(),
 			new PageJsonConverterFactory(),
@@ -22,7 +23,9 @@ internal sealed class HdFleetClient(
 		}
 	};
 
+	private readonly IValidator<ListDrivers.Request> _listDriversRequestValidator = services.GetRequiredService<IValidator<ListDrivers.Request>>();
 	private readonly IValidator<ListLatestLocations.Request> _listLatestLocationsRequestValidator = services.GetRequiredService<IValidator<ListLatestLocations.Request>>();
+	private readonly IValidator<ListLocationHistory.Request> _listLocationHistoryRequestValidator = services.GetRequiredService<IValidator<ListLocationHistory.Request>>();
 	private readonly IValidator<ListVehicles.Request> _listVehiclesRequestValidator = services.GetRequiredService<IValidator<ListVehicles.Request>>();
 	private readonly FreshPollGate _freshPollGate = new(services.GetRequiredService<IMemoryCache>());
 	private readonly HttpClient _httpClient = httpClient ?? services.GetRequiredService<IHttpClientFactory>().CreateClient(nameof(IHdFleetClient));
@@ -42,6 +45,18 @@ internal sealed class HdFleetClient(
 				Vehicle = vehicle
 			}, null, cancellationToken);
 
+	public Task<ListDrivers.Response> ListDriversAsync(
+		CancellationToken cancellationToken = default) => ListDriversAsync(ListDrivers.Request.Default, cancellationToken);
+
+	public Task<ListDrivers.Response> ListDriversAsync(
+		ListDrivers.Request request,
+		CancellationToken cancellationToken = default) => SendAsync(request, _listDriversRequestValidator, static (Page<Driver>? page) => new ListDrivers.Response {
+			Drivers = page?.Data ?? [],
+			NextCursor = page?.NextCursor
+		}, request.Cursor is null
+			? FreshPollFloors.Drivers
+			: (TimeSpan?)null, cancellationToken);
+
 	public Task<ListLatestLocations.Response> ListLatestLocationsAsync(
 		CancellationToken cancellationToken = default) => ListLatestLocationsAsync(ListLatestLocations.Request.Default, cancellationToken);
 
@@ -52,6 +67,23 @@ internal sealed class HdFleetClient(
 			NextCursor = page?.NextCursor
 		}, request.Cursor is null
 			? FreshPollFloors.LatestLocations
+			: (TimeSpan?)null, cancellationToken);
+
+	public Task<ListLocationHistory.Response> ListLocationHistoryAsync(
+		DateTimeOffset from,
+		DateTimeOffset to,
+		CancellationToken cancellationToken = default) => ListLocationHistoryAsync(new ListLocationHistory.Request {
+			From = from,
+			To = to
+		}, cancellationToken);
+
+	public Task<ListLocationHistory.Response> ListLocationHistoryAsync(
+		ListLocationHistory.Request request,
+		CancellationToken cancellationToken = default) => SendAsync(request, _listLocationHistoryRequestValidator, static (Page<Location>? page) => new ListLocationHistory.Response {
+			Locations = page?.Data ?? [],
+			NextCursor = page?.NextCursor
+		}, request.Cursor is null
+			? FreshPollFloors.LocationHistory
 			: (TimeSpan?)null, cancellationToken);
 
 	public Task<ListVehicles.Response> ListVehiclesAsync(

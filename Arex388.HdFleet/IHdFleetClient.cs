@@ -35,6 +35,24 @@ public interface IHdFleetClient {
 		CancellationToken cancellationToken = default);
 
 	/// <summary>
+	/// Returns the account's drivers.
+	/// </summary>
+	/// <param name="cancellationToken">The cancellation token.</param>
+	/// <returns>The <see cref="ListDrivers.Response"/> response.</returns>
+	Task<ListDrivers.Response> ListDriversAsync(
+		CancellationToken cancellationToken = default);
+
+	/// <summary>
+	/// Returns the account's drivers.
+	/// </summary>
+	/// <param name="request">The <see cref="ListDrivers.Request"/> request.</param>
+	/// <param name="cancellationToken">The cancellation token.</param>
+	/// <returns>The <see cref="ListDrivers.Response"/> response.</returns>
+	Task<ListDrivers.Response> ListDriversAsync(
+		ListDrivers.Request request,
+		CancellationToken cancellationToken = default);
+
+	/// <summary>
 	/// Returns the latest locations for the account's vehicles.
 	/// </summary>
 	/// <param name="cancellationToken">The cancellation token.</param>
@@ -50,6 +68,42 @@ public interface IHdFleetClient {
 	/// <returns>The <see cref="ListLatestLocations.Response"/> response.</returns>
 	Task<ListLatestLocations.Response> ListLatestLocationsAsync(
 		ListLatestLocations.Request request,
+		CancellationToken cancellationToken = default);
+
+	/// <summary>
+	/// Returns the location history for the account's vehicles within a bounded
+	/// time window.
+	/// </summary>
+	/// <remarks>
+	/// The window must be 15 minutes or less, and fresh queries are floored at 60
+	/// seconds per new window. Do not brute-force history through this endpoint —
+	/// a day of history is ~96 sequential windowed queries at 60 seconds apart;
+	/// use the backfills workflow instead.
+	/// </remarks>
+	/// <param name="from">The window's start timestamp.</param>
+	/// <param name="to">The window's end timestamp. No more than 15 minutes after <paramref name="from"/>.</param>
+	/// <param name="cancellationToken">The cancellation token.</param>
+	/// <returns>The <see cref="ListLocationHistory.Response"/> response.</returns>
+	Task<ListLocationHistory.Response> ListLocationHistoryAsync(
+		DateTimeOffset from,
+		DateTimeOffset to,
+		CancellationToken cancellationToken = default);
+
+	/// <summary>
+	/// Returns the location history for the account's vehicles within a bounded
+	/// time window.
+	/// </summary>
+	/// <remarks>
+	/// The window must be 15 minutes or less, and fresh queries are floored at 60
+	/// seconds per new window. Do not brute-force history through this endpoint —
+	/// a day of history is ~96 sequential windowed queries at 60 seconds apart;
+	/// use the backfills workflow instead.
+	/// </remarks>
+	/// <param name="request">The <see cref="ListLocationHistory.Request"/> request.</param>
+	/// <param name="cancellationToken">The cancellation token.</param>
+	/// <returns>The <see cref="ListLocationHistory.Response"/> response.</returns>
+	Task<ListLocationHistory.Response> ListLocationHistoryAsync(
+		ListLocationHistory.Request request,
 		CancellationToken cancellationToken = default);
 
 	/// <summary>

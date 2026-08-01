@@ -1,0 +1,22 @@
+{
+  "data": [
+    {
+      "externalVehicleId": "V-1",
+      "latitude": 33.448376,
+      "longitude": -112.074036,
+      "recordedAt": "2026-07-31T18:00:00Z",
+      "odometer": "100001.5",
+      "odometerUnit": "mi",
+      "driverId": "D-1",
+      "driverName": "Jamie Driver",
+      "speedMph": 55.5,
+      "headingDegrees": 90,
+      "altitude": 331.2,
+      "vin": null,
+      "deviceId": "DEV-1",
+      "imei": null,
+      "status": "moving"
+    }
+  ],
+  "nextCursor": null
+}

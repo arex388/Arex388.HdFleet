@@ -18,6 +18,7 @@ public sealed class ConverterRegistrationTests {
 	}
 
 	[Theory]
+	[InlineData(typeof(Driver))]
 	[InlineData(typeof(Location))]
 	[InlineData(typeof(Vehicle))]
 	public void EveryPublicModelType_HasARegisteredConverter(
