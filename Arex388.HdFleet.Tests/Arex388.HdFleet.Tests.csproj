@@ -1,0 +1,41 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+	<PropertyGroup>
+		<IsPackable>false</IsPackable>
+		<IsTestProject>true</IsTestProject>
+		<UserSecretsId>387702e4-3562-47eb-8ca3-1b4e62bd59bc</UserSecretsId>
+		<!-- xUnit1051 wants TestContext.Current.CancellationToken threaded through
+		     every client call; the offline suite runs against instant mock handlers,
+		     and tests that exercise cancellation pass their own tokens. -->
+		<NoWarn>$(NoWarn);xUnit1051</NoWarn>
+	</PropertyGroup>
+
+	<ItemGroup>
+		<PackageReference Include="coverlet.collector" Version="10.0.1">
+			<PrivateAssets>all</PrivateAssets>
+			<IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+		</PackageReference>
+		<PackageReference Include="FluentAssertions" Version="8.10.0" />
+		<PackageReference Include="Microsoft.Extensions.Configuration.UserSecrets" Version="10.0.10" />
+		<PackageReference Include="Microsoft.NET.Test.Sdk" Version="18.8.1" />
+		<PackageReference Include="xunit.v3" Version="3.2.2" />
+		<PackageReference Include="xunit.runner.visualstudio" Version="3.1.5">
+			<PrivateAssets>all</PrivateAssets>
+			<IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+		</PackageReference>
+	</ItemGroup>
+
+	<ItemGroup>
+		<ProjectReference Include="..\Arex388.HdFleet\Arex388.HdFleet.csproj" />
+	</ItemGroup>
+
+	<ItemGroup>
+		<Compile Include="..\TestData\MockHttpMessageHandler.cs" Link="MockHttpMessageHandler.cs" />
+		<None Include="..\TestData\Responses\*.json" Link="Responses\%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />
+	</ItemGroup>
+
+	<ItemGroup>
+		<Using Include="Xunit" />
+	</ItemGroup>
+
+</Project>

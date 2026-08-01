@@ -1,0 +1,16 @@
+{
+  "externalVehicleId": "V-NULLS",
+  "displayName": null,
+  "vin": null,
+  "licensePlate": null,
+  "status": null,
+  "updatedAt": null,
+  "deviceId": null,
+  "imei": null,
+  "deviceType": null,
+  "lastLatitude": null,
+  "lastLongitude": null,
+  "lastTrackingActivity": null,
+  "speedMph": null,
+  "headingDegrees": null
+}

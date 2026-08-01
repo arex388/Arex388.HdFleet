@@ -33,6 +33,17 @@ public abstract class ResponseBase<TResponse>
 	/// </summary>
 	public bool Success => Errors.Count == 0;
 
+	//	A gate cache hit must not mutate the stored instance — the fresh caller
+	//	holds the same reference and its FromCache would retroactively flip.
+	//	A shallow copy is safe: the payload and Errors are read-only.
+	internal TResponse WithFromCache() {
+		var clone = (TResponse)MemberwiseClone();
+
+		clone.FromCache = true;
+
+		return clone;
+	}
+
 	//	============================================================================
 	//	Responses
 	//	============================================================================

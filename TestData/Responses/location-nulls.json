@@ -1,0 +1,17 @@
+{
+  "externalVehicleId": "V-NULLS",
+  "latitude": 33.448376,
+  "longitude": -112.074036,
+  "recordedAt": "2026-07-31T18:00:00Z",
+  "odometer": null,
+  "odometerUnit": null,
+  "driverId": null,
+  "driverName": null,
+  "speedMph": null,
+  "headingDegrees": null,
+  "altitude": null,
+  "vin": null,
+  "deviceId": null,
+  "imei": null,
+  "status": null
+}

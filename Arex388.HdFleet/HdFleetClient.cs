@@ -105,9 +105,7 @@ internal sealed class HdFleetClient(
 			var cached = _freshPollGate.GetCached<TResponse>(_options.Key, endpoint);
 
 			if (cached is not null) {
-				cached.FromCache = true;
-
-				return cached;
+				return cached.WithFromCache();
 			}
 		}
 

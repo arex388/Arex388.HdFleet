@@ -1,0 +1,38 @@
+{
+  "data": [
+    {
+      "externalVehicleId": "V-1",
+      "displayName": "Truck 1",
+      "vin": "1FTFW1ET5DFC10312",
+      "licensePlate": "ABC-1234",
+      "status": "active",
+      "updatedAt": "2026-07-31T17:45:00Z",
+      "deviceId": "DEV-1",
+      "imei": "356938035643809",
+      "deviceType": "dashcam",
+      "lastLatitude": 33.448376,
+      "lastLongitude": -112.074036,
+      "lastTrackingActivity": "2026-07-31T17:44:30Z",
+      "speedMph": "42.5",
+      "headingDegrees": 187.5,
+      "unknownProperty": "future-field"
+    },
+    {
+      "externalVehicleId": "V-2",
+      "displayName": null,
+      "vin": null,
+      "licensePlate": null,
+      "status": null,
+      "updatedAt": null,
+      "deviceId": null,
+      "imei": null,
+      "deviceType": null,
+      "lastLatitude": null,
+      "lastLongitude": null,
+      "lastTrackingActivity": null,
+      "speedMph": null,
+      "headingDegrees": null
+    }
+  ],
+  "nextCursor": null
+}

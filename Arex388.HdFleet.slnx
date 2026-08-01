@@ -4,5 +4,6 @@
 		<File Path="LICENSE" />
 		<File Path="README.md" />
 	</Folder>
+	<Project Path="Arex388.HdFleet.Tests/Arex388.HdFleet.Tests.csproj" />
 	<Project Path="Arex388.HdFleet/Arex388.HdFleet.csproj" />
 </Solution>

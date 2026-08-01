@@ -1,0 +1,8 @@
+{
+  "error": {
+    "code": "quota_exceeded",
+    "message": "The client quota has been exceeded.",
+    "requestId": "req-12345",
+    "details": "Retry after the quota window resets."
+  }
+}
