@@ -17,6 +17,9 @@ internal sealed class HdFleetClient(
 		Converters = {
 			new DriverJsonConverter(),
 			new ErrorEnvelopeJsonConverter(),
+			new EventJsonConverter(),
+			new EventMediaItemJsonConverter(),
+			new EventMediaJsonConverter(),
 			new LocationJsonConverter(),
 			new PageJsonConverterFactory(),
 			new VehicleJsonConverter()
@@ -24,6 +27,7 @@ internal sealed class HdFleetClient(
 	};
 
 	private readonly IValidator<ListDrivers.Request> _listDriversRequestValidator = services.GetRequiredService<IValidator<ListDrivers.Request>>();
+	private readonly IValidator<ListEvents.Request> _listEventsRequestValidator = services.GetRequiredService<IValidator<ListEvents.Request>>();
 	private readonly IValidator<ListLatestLocations.Request> _listLatestLocationsRequestValidator = services.GetRequiredService<IValidator<ListLatestLocations.Request>>();
 	private readonly IValidator<ListLocationHistory.Request> _listLocationHistoryRequestValidator = services.GetRequiredService<IValidator<ListLocationHistory.Request>>();
 	private readonly IValidator<ListVehicles.Request> _listVehiclesRequestValidator = services.GetRequiredService<IValidator<ListVehicles.Request>>();
@@ -55,6 +59,15 @@ internal sealed class HdFleetClient(
 			NextCursor = page?.NextCursor
 		}, request.Cursor is null
 			? FreshPollFloors.Drivers
+			: (TimeSpan?)null, cancellationToken);
+
+	public Task<ListEvents.Response> ListEventsAsync(
+		ListEvents.Request request,
+		CancellationToken cancellationToken = default) => SendAsync(request, _listEventsRequestValidator, static (Page<Event>? page) => new ListEvents.Response {
+			Events = page?.Data ?? [],
+			NextCursor = page?.NextCursor
+		}, request.Cursor is null
+			? FreshPollFloors.Events
 			: (TimeSpan?)null, cancellationToken);
 
 	public Task<ListLatestLocations.Response> ListLatestLocationsAsync(

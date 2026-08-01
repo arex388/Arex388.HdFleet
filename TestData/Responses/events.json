@@ -1,0 +1,71 @@
+{
+  "data": [
+    {
+      "externalEventId": "E-1",
+      "externalVehicleId": "V-1",
+      "eventType": "harsh_braking",
+      "occurredAt": "2026-07-31T18:05:00Z",
+      "associatedDriverId": "D-1",
+      "associatedDriverName": "Jamie Driver",
+      "latitude": 33.448376,
+      "longitude": -112.074036,
+      "speedMph": "63.5",
+      "headingDegrees": 90,
+      "altitude": 331.2,
+      "vin": "1FTFW1ET5DFC10312",
+      "deviceId": "DEV-1",
+      "imei": null,
+      "media": {
+        "forwardVideoUrl": "https://blobs.hdfleet.net/media/fwd-1.mp4",
+        "inwardVideoUrl": "https://blobs.hdfleet.net/media/inw-1.mp4",
+        "items": [
+          {
+            "cameraNumber": 1,
+            "mediaType": "video",
+            "mediaStatus": "ready",
+            "url": "https://blobs.hdfleet.net/media/cam1-1.mp4",
+            "startAt": "2026-07-31T18:04:50Z",
+            "endAt": "2026-07-31T18:05:10Z",
+            "unknownProperty": 42
+          },
+          {
+            "cameraNumber": null,
+            "mediaType": null,
+            "mediaStatus": null,
+            "url": null,
+            "startAt": null,
+            "endAt": null
+          }
+        ]
+      }
+    },
+    {
+      "externalEventId": "E-2",
+      "externalVehicleId": null,
+      "eventType": "ignition_on",
+      "occurredAt": "2026-07-31T18:06:00Z",
+      "associatedDriverId": null,
+      "associatedDriverName": null,
+      "latitude": null,
+      "longitude": null,
+      "speedMph": null,
+      "headingDegrees": null,
+      "altitude": null,
+      "vin": null,
+      "deviceId": null,
+      "imei": null,
+      "media": null
+    },
+    {
+      "externalEventId": "E-3",
+      "eventType": "speeding",
+      "occurredAt": "2026-07-31T18:07:00Z",
+      "media": {
+        "forwardVideoUrl": null,
+        "inwardVideoUrl": null,
+        "items": []
+      }
+    }
+  ],
+  "nextCursor": null
+}

@@ -19,6 +19,9 @@ public sealed class ConverterRegistrationTests {
 
 	[Theory]
 	[InlineData(typeof(Driver))]
+	[InlineData(typeof(Event))]
+	[InlineData(typeof(EventMedia))]
+	[InlineData(typeof(EventMediaItem))]
 	[InlineData(typeof(Location))]
 	[InlineData(typeof(Vehicle))]
 	public void EveryPublicModelType_HasARegisteredConverter(

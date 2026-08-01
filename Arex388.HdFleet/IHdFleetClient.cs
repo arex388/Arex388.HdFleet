@@ -53,6 +53,21 @@ public interface IHdFleetClient {
 		CancellationToken cancellationToken = default);
 
 	/// <summary>
+	/// Returns the events for the account's vehicles within a bounded time window.
+	/// </summary>
+	/// <remarks>
+	/// The window must be 15 minutes or less, and fresh queries are floored at 60
+	/// seconds per new window. Event media URLs may be existing HD Fleet blob
+	/// URLs — treat them as opaque; do not parse, rewrite, or assume a lifetime.
+	/// </remarks>
+	/// <param name="request">The <see cref="ListEvents.Request"/> request.</param>
+	/// <param name="cancellationToken">The cancellation token.</param>
+	/// <returns>The <see cref="ListEvents.Response"/> response.</returns>
+	Task<ListEvents.Response> ListEventsAsync(
+		ListEvents.Request request,
+		CancellationToken cancellationToken = default);
+
+	/// <summary>
 	/// Returns the latest locations for the account's vehicles.
 	/// </summary>
 	/// <param name="cancellationToken">The cancellation token.</param>
