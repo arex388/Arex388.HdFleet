@@ -1,0 +1,22 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+	<PropertyGroup>
+		<IsBenchmarkProject>true</IsBenchmarkProject>
+		<IsPackable>false</IsPackable>
+		<OutputType>Exe</OutputType>
+	</PropertyGroup>
+
+	<ItemGroup>
+		<PackageReference Include="BenchmarkDotNet" Version="0.15.8" />
+	</ItemGroup>
+
+	<ItemGroup>
+		<ProjectReference Include="..\Arex388.HdFleet\Arex388.HdFleet.csproj" />
+	</ItemGroup>
+
+	<ItemGroup>
+		<Compile Include="..\TestData\MockHttpMessageHandler.cs" Link="MockHttpMessageHandler.cs" />
+		<None Include="..\TestData\Responses\*.json" Link="Responses\%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />
+	</ItemGroup>
+
+</Project>
