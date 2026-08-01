@@ -1,7 +1,44 @@
-﻿<Project Sdk="Microsoft.NET.Sdk">
+<Project Sdk="Microsoft.NET.Sdk">
 
-  <PropertyGroup>
-    <TargetFramework>netstandard2.0</TargetFramework>
-  </PropertyGroup>
+	<PropertyGroup>
+		<Authors>Arex388</Authors>
+		<Description>A highly opinionated .NET Standard 2.0 library for the HD Fleet Integrations External API.</Description>
+		<GenerateDocumentationFile>True</GenerateDocumentationFile>
+		<LangVersion>latest</LangVersion>
+		<EmbedUntrackedSources>true</EmbedUntrackedSources>
+		<IncludeSymbols>true</IncludeSymbols>
+		<PackageLicenseExpression>MIT</PackageLicenseExpression>
+		<PackageProjectUrl>https://github.com/arex388/Arex388.HdFleet</PackageProjectUrl>
+		<PackageReadmeFile>README.md</PackageReadmeFile>
+		<PackageTags>hdfleet hd-fleet arex388 telematics gps gps-tracking fleet fleet-gps fleet-management fleet-tracking vehicle vehicle-gps vehicle-management vehicle-tracking dashcam open-source</PackageTags>
+		<PublishRepositoryUrl>true</PublishRepositoryUrl>
+		<RepositoryType>git</RepositoryType>
+		<RepositoryUrl>https://github.com/arex388/Arex388.HdFleet</RepositoryUrl>
+		<SymbolPackageFormat>snupkg</SymbolPackageFormat>
+		<TargetFramework>netstandard2.0</TargetFramework>
+		<ImplicitUsings>enable</ImplicitUsings>
+	</PropertyGroup>
+
+	<ItemGroup>
+		<None Include="..\README.md" Pack="true" PackagePath="\" />
+	</ItemGroup>
+
+	<ItemGroup>
+		<PackageReference Include="FluentValidation" Version="[11.12.0,12.0.0)" />
+		<PackageReference Include="FluentValidation.DependencyInjectionExtensions" Version="[11.12.0,12.0.0)" />
+		<PackageReference Include="Microsoft.Bcl.AsyncInterfaces" Version="10.0.10" />
+		<PackageReference Include="Microsoft.Extensions.Caching.Memory" Version="10.0.10" />
+		<PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions" Version="10.0.10" />
+		<PackageReference Include="Microsoft.Extensions.Http" Version="10.0.10" />
+		<PackageReference Include="NetEscapades.EnumGenerators" Version="1.0.0-beta21" PrivateAssets="all" ExcludeAssets="runtime">
+			<IncludeAssets>compile; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+		</PackageReference>
+		<PackageReference Include="PolySharp" Version="1.16.0">
+			<PrivateAssets>all</PrivateAssets>
+			<IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+		</PackageReference>
+		<PackageReference Include="StronglyTypedId" Version="1.0.0-beta08" PrivateAssets="all" ExcludeAssets="runtime" />
+		<PackageReference Include="System.Text.Json" Version="10.0.10" />
+	</ItemGroup>
 
 </Project>

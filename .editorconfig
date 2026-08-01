@@ -1,0 +1,179 @@
+root = true
+
+#  =================================================================================
+#  Project / build files use tabs to match the repo convention. Without these
+#  explicit sections, ReSharper cleanupcode applies its default 4-space indent
+#  and silently re-indents .csproj files.
+#  =================================================================================
+[*.{csproj,props,targets,slnx,xml}]
+indent_style = tab
+indent_size = 4
+end_of_line = crlf
+insert_final_newline = true
+
+[*.{json,yml,yaml}]
+indent_style = space
+indent_size = 2
+end_of_line = crlf
+insert_final_newline = true
+
+[*.ps1]
+indent_style = tab
+indent_size = 4
+end_of_line = crlf
+insert_final_newline = true
+
+[*.cs]
+
+#  =================================================================================
+#  This repo is greenfield, so unlike Arex388.Carmine (whose C# is historically
+#  mixed and deliberately unpinned), C# indentation is pinned to tabs from the
+#  first file.
+#
+#  `jb cleanupcode` is the formatter this config targets. Do NOT run the
+#  toolchain's format_fix here: it runs `dotnet format` first, whose whitespace
+#  pass indents block bodies from the continuation line where this codebase
+#  indents from the declaration — no .editorconfig setting reconciles the two.
+#
+#  The csharp_* brace/control-flow keys below are read by ReSharper too; they
+#  mirror the resharper_csharp_ rules so a hand edit in an IDE that honors
+#  editorconfig standard keys lands on the same shape jb produces.
+#  =================================================================================
+indent_style = tab
+indent_size = 4
+end_of_line = crlf
+insert_final_newline = true
+csharp_new_line_before_open_brace = none
+csharp_new_line_before_catch = false
+csharp_new_line_before_else = false
+csharp_new_line_before_finally = false
+
+#  =================================================================================
+#  Brace styles (K&R / end-of-line)
+#  =================================================================================
+resharper_csharp_accessor_declaration_braces = end_of_line
+resharper_csharp_accessor_owner_declaration_braces = end_of_line
+resharper_csharp_anonymous_method_declaration_braces = end_of_line
+resharper_csharp_case_block_braces = end_of_line
+resharper_csharp_initializer_braces = end_of_line
+resharper_csharp_invocable_declaration_braces = end_of_line
+resharper_csharp_other_braces = end_of_line
+resharper_csharp_type_declaration_braces = end_of_line
+
+#  =================================================================================
+#  Wrapping — chop_always on parameters/arguments is what produces this repo's
+#  one-per-line declaration style.
+#  =================================================================================
+resharper_csharp_wrap_after_declaration_lpar = true
+resharper_csharp_wrap_after_invocation_lpar = false
+resharper_csharp_wrap_before_invocation_rpar = false
+resharper_csharp_wrap_array_initializer_style = chop_always
+resharper_csharp_wrap_arguments_style = simple_wrap
+resharper_csharp_wrap_before_binary_opsign = true
+resharper_csharp_wrap_chained_binary_expressions = chop_if_long
+resharper_csharp_wrap_extends_list_style = chop_always
+resharper_csharp_wrap_for_stmt_header_style = wrap_if_long
+resharper_csharp_wrap_lines = false
+resharper_csharp_wrap_linq_expressions = wrap_if_long
+resharper_csharp_wrap_multiple_declaration_style = chop_always
+resharper_csharp_wrap_multiple_type_parameter_constraints_style = chop_always
+resharper_csharp_wrap_object_and_collection_initializer_style = chop_always
+resharper_csharp_wrap_parameters_style = chop_always
+resharper_csharp_wrap_primary_constructor_parameters_style = chop_always
+resharper_csharp_wrap_switch_expression = chop_if_long
+resharper_csharp_wrap_ternary_expr_style = chop_always
+
+#  =================================================================================
+#  Force chop on compound conditions
+#  =================================================================================
+resharper_csharp_force_chop_compound_do_expression = true
+resharper_csharp_force_chop_compound_if_expression = true
+resharper_csharp_force_chop_compound_while_expression = true
+
+#  =================================================================================
+#  Alignment
+#  =================================================================================
+resharper_csharp_align_linq_query = true
+resharper_csharp_align_multiline_argument = false
+resharper_csharp_align_multiline_calls_chain = true
+resharper_csharp_align_multiline_extends_list = true
+resharper_csharp_align_multiline_for_stmt = true
+resharper_csharp_align_multiline_parameter = true
+resharper_csharp_align_multiple_declaration = true
+resharper_csharp_align_multline_type_parameter_constrains = true
+resharper_csharp_align_multline_type_parameter_list = true
+resharper_csharp_align_tuple_components = true
+resharper_csharp_int_align_comments = true
+resharper_csharp_alignment_tab_fill_style = optimal_fill
+
+#  =================================================================================
+#  Statement / clause placement
+#  =================================================================================
+resharper_csharp_place_accessorholder_attribute_on_same_line = never
+resharper_csharp_place_catch_on_new_line = false
+resharper_csharp_place_else_on_new_line = false
+resharper_csharp_place_field_attribute_on_same_line = never
+resharper_csharp_place_finally_on_new_line = false
+resharper_csharp_place_linq_into_on_new_line = false
+resharper_csharp_place_simple_accessor_on_single_line = false
+resharper_csharp_place_simple_anonymousmethod_on_single_line = false
+resharper_csharp_place_simple_case_statement_on_same_line = if_owner_is_single_line
+resharper_csharp_place_simple_enum_on_single_line = true
+resharper_csharp_place_simple_initializer_on_single_line = false
+resharper_csharp_place_simple_list_pattern_on_single_line = false
+resharper_csharp_place_simple_property_pattern_on_single_line = false
+resharper_csharp_place_type_constraints_on_same_line = false
+
+#  =================================================================================
+#  Blank lines
+#  =================================================================================
+resharper_csharp_blank_lines_after_multiline_statements = 1
+resharper_csharp_keep_blank_lines_in_code = 1
+resharper_csharp_keep_blank_lines_in_declarations = 1
+
+#  =================================================================================
+#  Keep / arrangement
+#  =================================================================================
+resharper_csharp_keep_existing_declaration_block_arrangement = true
+resharper_csharp_keep_existing_declaration_parens_arrangement = false
+resharper_csharp_keep_existing_invocation_parens_arrangement = false
+resharper_csharp_keep_existing_embedded_block_arrangement = true
+
+#  =================================================================================
+#  Parenthesis indentation
+#  =================================================================================
+resharper_csharp_indent_pars = inside
+
+#  =================================================================================
+#  Inspection severities
+#  The copy-to-`private readonly` field pattern for primary-constructor parameters
+#  is deliberate house style; the suggestion to capture the parameter directly is
+#  pure noise here.
+#  =================================================================================
+resharper_replace_with_primary_constructor_parameter_highlighting = none
+
+#  =================================================================================
+#  Misc
+#  =================================================================================
+resharper_csharp_allow_comment_after_lbrace = true
+resharper_csharp_indent_preprocessor_if = usual_indent
+resharper_csharp_indent_preprocessor_other = usual_indent
+resharper_csharp_max_enum_members_on_line = 1
+resharper_csharp_max_initializer_elements_on_line = 1
+resharper_csharp_stick_comment = false
+
+#  =================================================================================
+#  Per-project inspection and analyzer severities
+#  Library: public model accessors are consumed outside this solution and the
+#  file-scoped validators register via assembly scanning, so the two ReSharper
+#  "unused" rules are structural false positives there; Event is a public type on
+#  a published package, so CA1716's rename is off the table.
+#  Tests: underscored test names are the xUnit convention (CA1707).
+#  =================================================================================
+[Arex388.HdFleet/**.cs]
+dotnet_diagnostic.CA1716.severity = none
+resharper_unused_auto_property_accessor_global_highlighting = none
+resharper_unused_type_local_highlighting = none
+
+[Arex388.HdFleet.Tests/**.cs]
+dotnet_diagnostic.CA1707.severity = none

@@ -1,3 +1,8 @@
 <Solution>
-  <Project Path="Arex388.HdFleet/Arex388.HdFleet.csproj" />
+	<Folder Name="/Solution Items/">
+		<File Path="Directory.Build.props" />
+		<File Path="LICENSE" />
+		<File Path="README.md" />
+	</Folder>
+	<Project Path="Arex388.HdFleet/Arex388.HdFleet.csproj" />
 </Solution>
