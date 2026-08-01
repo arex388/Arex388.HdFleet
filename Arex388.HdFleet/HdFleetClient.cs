@@ -15,6 +15,8 @@ internal sealed class HdFleetClient(
 	IHdFleetClient {
 	private static readonly JsonSerializerOptions _jsonSerializerOptions = new() {
 		Converters = {
+			new BackfillJobJsonConverter(),
+			new BackfillSliceJsonConverter(),
 			new DriverJsonConverter(),
 			new ErrorEnvelopeJsonConverter(),
 			new EventJsonConverter(),
@@ -26,6 +28,8 @@ internal sealed class HdFleetClient(
 		}
 	};
 
+	private readonly IValidator<CreateBackfill.Request> _createBackfillRequestValidator = services.GetRequiredService<IValidator<CreateBackfill.Request>>();
+	private readonly IValidator<ListBackfillSlices.Request> _listBackfillSlicesRequestValidator = services.GetRequiredService<IValidator<ListBackfillSlices.Request>>();
 	private readonly IValidator<ListDrivers.Request> _listDriversRequestValidator = services.GetRequiredService<IValidator<ListDrivers.Request>>();
 	private readonly IValidator<ListEvents.Request> _listEventsRequestValidator = services.GetRequiredService<IValidator<ListEvents.Request>>();
 	private readonly IValidator<ListLatestLocations.Request> _listLatestLocationsRequestValidator = services.GetRequiredService<IValidator<ListLatestLocations.Request>>();
@@ -34,6 +38,35 @@ internal sealed class HdFleetClient(
 	private readonly FreshPollGate _freshPollGate = new(services.GetRequiredService<IMemoryCache>());
 	private readonly HttpClient _httpClient = httpClient ?? services.GetRequiredService<IHttpClientFactory>().CreateClient(nameof(IHdFleetClient));
 	private readonly HdFleetClientOptions _options = options ?? services.GetRequiredService<HdFleetClientOptions>();
+
+	public Task<CreateBackfill.Response> CreateBackfillAsync(
+		CreateBackfill.Request request,
+		CancellationToken cancellationToken = default) => SendAsync(request, _createBackfillRequestValidator, static (BackfillJob? job) => job is null
+			? null
+			: new CreateBackfill.Response {
+				Job = job
+			}, null, cancellationToken);
+
+	public Task<GetBackfill.Response> GetBackfillAsync(
+		BackfillJobId id,
+		CancellationToken cancellationToken = default) => GetBackfillAsync(new GetBackfill.Request {
+			Id = id
+		}, cancellationToken);
+
+	public Task<GetBackfill.Response> GetBackfillAsync(
+		GetBackfill.Request request,
+		CancellationToken cancellationToken = default) => SendAsync(request, null, static (BackfillJob? job) => job is null
+			? null
+			: new GetBackfill.Response {
+				Job = job
+			}, null, cancellationToken);
+
+	public Task<GetBackfillEventsPage.Response> GetBackfillEventsPageAsync(
+		GetBackfillEventsPage.Request request,
+		CancellationToken cancellationToken = default) => SendAsync(request, null, static (Page<Event>? page) => new GetBackfillEventsPage.Response {
+			Events = page?.Data ?? [],
+			NextCursor = page?.NextCursor
+		}, null, cancellationToken);
 
 	public Task<GetVehicle.Response> GetVehicleAsync(
 		ExternalVehicleId id,
@@ -48,6 +81,13 @@ internal sealed class HdFleetClient(
 			: new GetVehicle.Response {
 				Vehicle = vehicle
 			}, null, cancellationToken);
+
+	public Task<ListBackfillSlices.Response> ListBackfillSlicesAsync(
+		ListBackfillSlices.Request request,
+		CancellationToken cancellationToken = default) => SendAsync(request, _listBackfillSlicesRequestValidator, static (Page<BackfillSlice>? page) => new ListBackfillSlices.Response {
+			NextCursor = page?.NextCursor,
+			Slices = page?.Data ?? []
+		}, null, cancellationToken);
 
 	public Task<ListDrivers.Response> ListDriversAsync(
 		CancellationToken cancellationToken = default) => ListDriversAsync(ListDrivers.Request.Default, cancellationToken);
@@ -158,8 +198,9 @@ internal sealed class HdFleetClient(
 			//  The Authorization header is set per request, never on
 			//  DefaultRequestHeaders — a pooled client with a default header is
 			//  a cross-account data leak.
-			using var httpRequest = new HttpRequestMessage(HttpMethod.Get, endpoint);
+			using var httpRequest = new HttpRequestMessage(request.Method, endpoint);
 
+			httpRequest.Content = request.GetContent();
 			httpRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", _options.Key);
 
 			//  The default ResponseContentRead completion buffers the full body

@@ -5,6 +5,63 @@ namespace Arex388.HdFleet;
 /// </summary>
 public interface IHdFleetClient {
 	/// <summary>
+	/// Creates a backfill job — the sanctioned path for historical catch-up.
+	/// </summary>
+	/// <remarks>
+	/// A <c>202</c> means the job was accepted — poll
+	/// <see cref="GetBackfillAsync(BackfillJobId, CancellationToken)"/> until its
+	/// status is <c>"ready"</c>; a <c>200</c> with <c>Reused</c> means an
+	/// identical ready job already existed; a <c>409</c> (<c>Status = Conflict</c>)
+	/// means the window overlaps an existing ready job. This POST is never
+	/// retried by the client — re-issue a failed create yourself; job reuse
+	/// makes accidental duplicates harmless.
+	/// </remarks>
+	/// <param name="request">The <see cref="CreateBackfill.Request"/> request.</param>
+	/// <param name="cancellationToken">The cancellation token.</param>
+	/// <returns>The <see cref="CreateBackfill.Response"/> response.</returns>
+	Task<CreateBackfill.Response> CreateBackfillAsync(
+		CreateBackfill.Request request,
+		CancellationToken cancellationToken = default);
+
+	/// <summary>
+	/// Returns a backfill job. Poll until its status is <c>"ready"</c>; a
+	/// <c>410</c> (<c>Status = Gone</c>) means the job expired — recreate it.
+	/// </summary>
+	/// <param name="id">The backfill job's id.</param>
+	/// <param name="cancellationToken">The cancellation token.</param>
+	/// <returns>The <see cref="GetBackfill.Response"/> response.</returns>
+	Task<GetBackfill.Response> GetBackfillAsync(
+		BackfillJobId id,
+		CancellationToken cancellationToken = default);
+
+	/// <summary>
+	/// Returns a backfill job. Poll until its status is <c>"ready"</c>; a
+	/// <c>410</c> (<c>Status = Gone</c>) means the job expired — recreate it.
+	/// </summary>
+	/// <param name="request">The <see cref="GetBackfill.Request"/> request.</param>
+	/// <param name="cancellationToken">The cancellation token.</param>
+	/// <returns>The <see cref="GetBackfill.Response"/> response.</returns>
+	Task<GetBackfill.Response> GetBackfillAsync(
+		GetBackfill.Request request,
+		CancellationToken cancellationToken = default);
+
+	/// <summary>
+	/// Returns one page of an events backfill slice by its opaque endpoint URL.
+	/// </summary>
+	/// <remarks>
+	/// Follow <c>NextCursor</c> inside the slice until null before moving to the
+	/// next sequence — or use
+	/// <see cref="HdFleetClientExtensions.StreamBackfillEventsAsync(IHdFleetClient, BackfillJobId, CancellationToken)"/>
+	/// which implements the documented consumption protocol.
+	/// </remarks>
+	/// <param name="request">The <see cref="GetBackfillEventsPage.Request"/> request.</param>
+	/// <param name="cancellationToken">The cancellation token.</param>
+	/// <returns>The <see cref="GetBackfillEventsPage.Response"/> response.</returns>
+	Task<GetBackfillEventsPage.Response> GetBackfillEventsPageAsync(
+		GetBackfillEventsPage.Request request,
+		CancellationToken cancellationToken = default);
+
+	/// <summary>
 	/// Returns a vehicle.
 	/// </summary>
 	/// <remarks>
@@ -32,6 +89,22 @@ public interface IHdFleetClient {
 	/// <returns>The <see cref="GetVehicle.Response"/> response.</returns>
 	Task<GetVehicle.Response> GetVehicleAsync(
 		GetVehicle.Request request,
+		CancellationToken cancellationToken = default);
+
+	/// <summary>
+	/// Returns a backfill job's slices — durable, ordered, bounded endpoint URLs.
+	/// </summary>
+	/// <remarks>
+	/// Consume slices in ascending sequence, exhausting each slice's inner
+	/// cursor before moving to the next. Unlike every other cursor endpoint,
+	/// this endpoint's cursor is an integer on the wire — it still rides here as
+	/// its opaque string form.
+	/// </remarks>
+	/// <param name="request">The <see cref="ListBackfillSlices.Request"/> request.</param>
+	/// <param name="cancellationToken">The cancellation token.</param>
+	/// <returns>The <see cref="ListBackfillSlices.Response"/> response.</returns>
+	Task<ListBackfillSlices.Response> ListBackfillSlicesAsync(
+		ListBackfillSlices.Request request,
 		CancellationToken cancellationToken = default);
 
 	/// <summary>

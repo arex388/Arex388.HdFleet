@@ -68,6 +68,84 @@ public static class HdFleetClientExtensions {
 		}
 
 		/// <summary>
+		/// Streams the events of a ready backfill job, implementing the documented
+		/// consumption protocol: slices are walked strictly in ascending sequence,
+		/// and each slice's inner cursor is exhausted before the next sequence
+		/// begins. Processing is sequential by design.
+		/// </summary>
+		/// <param name="jobId">The backfill job's id.</param>
+		/// <param name="cancellationToken">The cancellation token.</param>
+		/// <returns>An async stream of <c>Event</c>.</returns>
+		/// <remarks>
+		/// The stream ends silently if any page request fails — including a
+		/// <c>410</c> from an expired job mid-walk; a truncated stream is
+		/// indistinguishable from an exhausted one here. Use
+		/// <see cref="IHdFleetClient.ListBackfillSlicesAsync(ListBackfillSlices.Request, CancellationToken)"/>
+		/// and
+		/// <see cref="IHdFleetClient.GetBackfillEventsPageAsync(GetBackfillEventsPage.Request, CancellationToken)"/>
+		/// when error visibility matters. Walks at most 100 slice-list pages and
+		/// 100 pages per slice, then throws <see cref="InvalidOperationException"/>.
+		/// </remarks>
+		public async IAsyncEnumerable<Event> StreamBackfillEventsAsync(
+			BackfillJobId jobId,
+			[EnumeratorCancellation]
+			CancellationToken cancellationToken = default) {
+			//	Collect every slice first — the walk must be strictly ordered by
+			//	sequence, and slice-list pages are not guaranteed to be.
+			var slices = new List<BackfillSlice>();
+
+			string? cursor = null;
+			var pages = 0;
+
+			do {
+				var response = await client.ListBackfillSlicesAsync(new ListBackfillSlices.Request {
+					Cursor = cursor,
+					Id = jobId
+				}, cancellationToken).ConfigureAwait(false);
+
+				if (!response.Success) {
+					yield break;
+				}
+
+				slices.AddRange(response.Slices);
+
+				cursor = response.NextCursor;
+				pages++;
+
+				if (pages >= PageCap && cursor.HasValue()) {
+					throw new InvalidOperationException("HD Fleet returned a pagination cursor after " + PageCap + " pages — aborting the walk to avoid an unbounded loop.");
+				}
+			} while (cursor.HasValue());
+
+			foreach (var slice in slices.OrderBy(s => s.Sequence)) {
+				string? inner = null;
+				var innerPages = 0;
+
+				do {
+					var response = await client.GetBackfillEventsPageAsync(new GetBackfillEventsPage.Request {
+						Cursor = inner,
+						SliceEndpoint = slice.Endpoint
+					}, cancellationToken).ConfigureAwait(false);
+
+					if (!response.Success) {
+						yield break;
+					}
+
+					foreach (var @event in response.Events) {
+						yield return @event;
+					}
+
+					inner = response.NextCursor;
+					innerPages++;
+
+					if (innerPages >= PageCap && inner.HasValue()) {
+						throw new InvalidOperationException("HD Fleet returned a pagination cursor after " + PageCap + " pages — aborting the walk to avoid an unbounded loop.");
+					}
+				} while (inner.HasValue());
+			}
+		}
+
+		/// <summary>
 		/// Streams the account's drivers, walking cursor pages until exhaustion.
 		/// </summary>
 		/// <param name="cancellationToken">The cancellation token.</param>

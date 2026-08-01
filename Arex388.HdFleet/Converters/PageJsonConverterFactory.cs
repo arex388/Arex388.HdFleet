@@ -74,9 +74,14 @@ internal sealed class PageJsonConverterFactory :
 				} else if (reader.ValueTextEquals(_nextCursor)) {
 					reader.Read();
 
-					nextCursor = reader.TokenType == JsonTokenType.String
-						? reader.GetString()
-						: null;
+					//	The backfill-slices endpoint types its cursor as an
+					//	integer, unlike the opaque strings everywhere else —
+					//	tolerate both; either way the cursor stays opaque.
+					nextCursor = reader.TokenType switch {
+						JsonTokenType.String => reader.GetString(),
+						JsonTokenType.Number => reader.GetInt64().ToString(System.Globalization.CultureInfo.InvariantCulture),
+						_ => null
+					};
 				} else {
 					reader.Skip();
 				}

@@ -61,11 +61,17 @@ internal sealed class CapturingHandler(
 	HttpStatusCode statusCode = HttpStatusCode.OK,
 	Action<HttpResponseMessage>? configure = null) :
 	HttpMessageHandler {
+	public IList<string?> Bodies { get; } = [];
+	public IList<HttpMethod> Methods { get; } = [];
 	public IList<Uri> Requests { get; } = [];
 
-	protected override Task<HttpResponseMessage> SendAsync(
+	protected override async Task<HttpResponseMessage> SendAsync(
 		HttpRequestMessage request,
 		CancellationToken cancellationToken) {
+		Bodies.Add(request.Content is null
+			? null
+			: await request.Content.ReadAsStringAsync(cancellationToken));
+		Methods.Add(request.Method);
 		Requests.Add(request.RequestUri!);
 
 		var response = new HttpResponseMessage(statusCode) {
@@ -74,7 +80,7 @@ internal sealed class CapturingHandler(
 
 		configure?.Invoke(response);
 
-		return Task.FromResult(response);
+		return response;
 	}
 }
 

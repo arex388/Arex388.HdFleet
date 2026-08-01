@@ -1,0 +1,16 @@
+{
+  "id": "3fa85f64-5717-4562-b3fc-2c963f66afa6",
+  "stream": "events",
+  "status": "ready",
+  "from": "2026-06-01T00:00:00Z",
+  "to": "2026-06-02T00:00:00Z",
+  "sliceMinutes": 15,
+  "externalVehicleId": "V-1",
+  "reason": "initial_sync",
+  "sliceCount": 96,
+  "expiresAt": "2026-06-09T00:00:00Z",
+  "createdAt": "2026-06-02T01:00:00Z",
+  "reused": false,
+  "slicesUrl": "backfills/3fa85f64-5717-4562-b3fc-2c963f66afa6/slices",
+  "unknownProperty": "future-field"
+}

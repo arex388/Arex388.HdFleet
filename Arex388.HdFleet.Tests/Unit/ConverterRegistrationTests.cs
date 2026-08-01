@@ -18,6 +18,8 @@ public sealed class ConverterRegistrationTests {
 	}
 
 	[Theory]
+	[InlineData(typeof(BackfillJob))]
+	[InlineData(typeof(BackfillSlice))]
 	[InlineData(typeof(Driver))]
 	[InlineData(typeof(Event))]
 	[InlineData(typeof(EventMedia))]
