@@ -37,16 +37,31 @@ public sealed class Vehicle {
 	/// <summary>
 	/// The vehicle's last tracking activity timestamp.
 	/// </summary>
+	/// <remarks>
+	/// <c>GET /vehicles</c> has a 15-minute fresh-poll floor, so this is at
+	/// 15-minute granularity — a metadata source, not a position source. Use
+	/// <see cref="ListLatestLocations"/> for positions.
+	/// </remarks>
 	public DateTimeOffset? LastActivityAt { get; init; }
 
 	/// <summary>
 	/// The vehicle's last known latitude.
 	/// </summary>
+	/// <remarks>
+	/// <c>GET /vehicles</c> has a 15-minute fresh-poll floor, so this is at
+	/// 15-minute granularity — a metadata source, not a position source. Use
+	/// <see cref="ListLatestLocations"/> for positions.
+	/// </remarks>
 	public decimal? LastLatitude { get; init; }
 
 	/// <summary>
 	/// The vehicle's last known longitude.
 	/// </summary>
+	/// <remarks>
+	/// <c>GET /vehicles</c> has a 15-minute fresh-poll floor, so this is at
+	/// 15-minute granularity — a metadata source, not a position source. Use
+	/// <see cref="ListLatestLocations"/> for positions.
+	/// </remarks>
 	public decimal? LastLongitude { get; init; }
 
 	/// <summary>

@@ -23,9 +23,24 @@ internal sealed class HdFleetClient(
 	};
 
 	private readonly IValidator<ListLatestLocations.Request> _listLatestLocationsRequestValidator = services.GetRequiredService<IValidator<ListLatestLocations.Request>>();
+	private readonly IValidator<ListVehicles.Request> _listVehiclesRequestValidator = services.GetRequiredService<IValidator<ListVehicles.Request>>();
 	private readonly FreshPollGate _freshPollGate = new(services.GetRequiredService<IMemoryCache>());
 	private readonly HttpClient _httpClient = httpClient ?? services.GetRequiredService<IHttpClientFactory>().CreateClient(nameof(IHdFleetClient));
 	private readonly HdFleetClientOptions _options = options ?? services.GetRequiredService<HdFleetClientOptions>();
+
+	public Task<GetVehicle.Response> GetVehicleAsync(
+		ExternalVehicleId id,
+		CancellationToken cancellationToken = default) => GetVehicleAsync(new GetVehicle.Request {
+			Id = id
+		}, cancellationToken);
+
+	public Task<GetVehicle.Response> GetVehicleAsync(
+		GetVehicle.Request request,
+		CancellationToken cancellationToken = default) => SendAsync(request, null, static (Vehicle? vehicle) => vehicle is null
+			? null
+			: new GetVehicle.Response {
+				Vehicle = vehicle
+			}, null, cancellationToken);
 
 	public Task<ListLatestLocations.Response> ListLatestLocationsAsync(
 		CancellationToken cancellationToken = default) => ListLatestLocationsAsync(ListLatestLocations.Request.Default, cancellationToken);
@@ -37,6 +52,18 @@ internal sealed class HdFleetClient(
 			NextCursor = page?.NextCursor
 		}, request.Cursor is null
 			? FreshPollFloors.LatestLocations
+			: (TimeSpan?)null, cancellationToken);
+
+	public Task<ListVehicles.Response> ListVehiclesAsync(
+		CancellationToken cancellationToken = default) => ListVehiclesAsync(ListVehicles.Request.Default, cancellationToken);
+
+	public Task<ListVehicles.Response> ListVehiclesAsync(
+		ListVehicles.Request request,
+		CancellationToken cancellationToken = default) => SendAsync(request, _listVehiclesRequestValidator, static (Page<Vehicle>? page) => new ListVehicles.Response {
+			NextCursor = page?.NextCursor,
+			Vehicles = page?.Data ?? []
+		}, request.Cursor is null
+			? FreshPollFloors.Vehicles
 			: (TimeSpan?)null, cancellationToken);
 
 	//  ============================================================================
