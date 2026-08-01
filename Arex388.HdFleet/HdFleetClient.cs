@@ -22,6 +22,7 @@ internal sealed class HdFleetClient(
 			new EventJsonConverter(),
 			new EventMediaItemJsonConverter(),
 			new EventMediaJsonConverter(),
+			new IntegrationJsonConverter(),
 			new LocationJsonConverter(),
 			new PageJsonConverterFactory(),
 			new VehicleJsonConverter()
@@ -32,6 +33,7 @@ internal sealed class HdFleetClient(
 	private readonly IValidator<ListBackfillSlices.Request> _listBackfillSlicesRequestValidator = services.GetRequiredService<IValidator<ListBackfillSlices.Request>>();
 	private readonly IValidator<ListDrivers.Request> _listDriversRequestValidator = services.GetRequiredService<IValidator<ListDrivers.Request>>();
 	private readonly IValidator<ListEvents.Request> _listEventsRequestValidator = services.GetRequiredService<IValidator<ListEvents.Request>>();
+	private readonly IValidator<ListIntegrations.Request> _listIntegrationsRequestValidator = services.GetRequiredService<IValidator<ListIntegrations.Request>>();
 	private readonly IValidator<ListLatestLocations.Request> _listLatestLocationsRequestValidator = services.GetRequiredService<IValidator<ListLatestLocations.Request>>();
 	private readonly IValidator<ListLocationHistory.Request> _listLocationHistoryRequestValidator = services.GetRequiredService<IValidator<ListLocationHistory.Request>>();
 	private readonly IValidator<ListVehicles.Request> _listVehiclesRequestValidator = services.GetRequiredService<IValidator<ListVehicles.Request>>();
@@ -109,6 +111,16 @@ internal sealed class HdFleetClient(
 		}, request.Cursor is null
 			? FreshPollFloors.Events
 			: (TimeSpan?)null, cancellationToken);
+
+	public Task<ListIntegrations.Response> ListIntegrationsAsync(
+		CancellationToken cancellationToken = default) => ListIntegrationsAsync(ListIntegrations.Request.Default, cancellationToken);
+
+	public Task<ListIntegrations.Response> ListIntegrationsAsync(
+		ListIntegrations.Request request,
+		CancellationToken cancellationToken = default) => SendAsync(request, _listIntegrationsRequestValidator, static (Page<Integration>? page) => new ListIntegrations.Response {
+			Integrations = page?.Data ?? [],
+			NextCursor = page?.NextCursor
+		}, null, cancellationToken);
 
 	public Task<ListLatestLocations.Response> ListLatestLocationsAsync(
 		CancellationToken cancellationToken = default) => ListLatestLocationsAsync(ListLatestLocations.Request.Default, cancellationToken);

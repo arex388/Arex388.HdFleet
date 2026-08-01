@@ -141,6 +141,32 @@ public interface IHdFleetClient {
 		CancellationToken cancellationToken = default);
 
 	/// <summary>
+	/// Returns HD Fleet's own upstream partner integrations and their health.
+	/// </summary>
+	/// <remarks>
+	/// A diagnostic surface, not part of the data path — not meant for tight
+	/// polling.
+	/// </remarks>
+	/// <param name="cancellationToken">The cancellation token.</param>
+	/// <returns>The <see cref="ListIntegrations.Response"/> response.</returns>
+	Task<ListIntegrations.Response> ListIntegrationsAsync(
+		CancellationToken cancellationToken = default);
+
+	/// <summary>
+	/// Returns HD Fleet's own upstream partner integrations and their health.
+	/// </summary>
+	/// <remarks>
+	/// A diagnostic surface, not part of the data path — not meant for tight
+	/// polling.
+	/// </remarks>
+	/// <param name="request">The <see cref="ListIntegrations.Request"/> request.</param>
+	/// <param name="cancellationToken">The cancellation token.</param>
+	/// <returns>The <see cref="ListIntegrations.Response"/> response.</returns>
+	Task<ListIntegrations.Response> ListIntegrationsAsync(
+		ListIntegrations.Request request,
+		CancellationToken cancellationToken = default);
+
+	/// <summary>
 	/// Returns the latest locations for the account's vehicles.
 	/// </summary>
 	/// <param name="cancellationToken">The cancellation token.</param>

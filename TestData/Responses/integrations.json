@@ -1,0 +1,26 @@
+{
+  "data": [
+    {
+      "id": "int-1",
+      "partner": "hdfleet-upstream",
+      "mode": "pull",
+      "status": "healthy",
+      "displayName": "Upstream Telemetry",
+      "lastSuccessAt": "2026-07-31T17:50:00Z",
+      "lastErrorAt": null,
+      "updatedAt": "2026-07-31T17:50:00Z",
+      "unknownProperty": [1, 2]
+    },
+    {
+      "id": "int-2",
+      "partner": "promiles",
+      "mode": "push",
+      "status": "degraded",
+      "displayName": null,
+      "lastSuccessAt": null,
+      "lastErrorAt": "2026-07-30T09:00:00Z",
+      "updatedAt": null
+    }
+  ],
+  "nextCursor": null
+}

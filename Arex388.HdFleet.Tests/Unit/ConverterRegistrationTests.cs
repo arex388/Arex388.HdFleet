@@ -24,6 +24,9 @@ public sealed class ConverterRegistrationTests {
 	[InlineData(typeof(Event))]
 	[InlineData(typeof(EventMedia))]
 	[InlineData(typeof(EventMediaItem))]
+	//	Fully qualified — bare "Integration" resolves to the tests' Integration
+	//	namespace, not the model.
+	[InlineData(typeof(Arex388.HdFleet.Integration))]
 	[InlineData(typeof(Location))]
 	[InlineData(typeof(Vehicle))]
 	public void EveryPublicModelType_HasARegisteredConverter(
