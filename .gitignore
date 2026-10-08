@@ -6,6 +6,7 @@
 # Local tooling and assistant configuration — not published
 .claude/
 .mcp.json
+AGENTS.md
 CLAUDE*.md
 HDFLEET-API-CLIENT-SPEC.md
 
