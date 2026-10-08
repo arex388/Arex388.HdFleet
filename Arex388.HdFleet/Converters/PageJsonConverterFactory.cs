@@ -39,6 +39,7 @@ internal sealed class PageJsonConverterFactory :
 			var converter = (JsonConverter<T>)options.GetConverter(typeof(T));
 
 			List<T>? data = null;
+			int? recordCount = null;
 
 			//	A null or absent nextCursor both mean exhaustion — the local
 			//	stays null unless a non-null cursor value is actually read.
@@ -63,8 +64,14 @@ internal sealed class PageJsonConverterFactory :
 					}
 
 					data = [];
+					recordCount = 0;
 
+					//	Every wire element counts toward RecordCount, null
+					//	elements included, even though only non-null items
+					//	reach Data.
 					while (reader.Read() && reader.TokenType != JsonTokenType.EndArray) {
+						recordCount++;
+
 						var item = converter.Read(ref reader, typeof(T), options);
 
 						if (item is not null) {
@@ -89,7 +96,8 @@ internal sealed class PageJsonConverterFactory :
 
 			return new Page<T> {
 				Data = data ?? [],
-				NextCursor = nextCursor
+				NextCursor = nextCursor,
+				RecordCount = recordCount
 			};
 		}
 

@@ -29,7 +29,9 @@ public static class ServiceCollectionExtensions {
 		/// </summary>
 		/// <param name="options">The client's configuration options.</param>
 		/// <returns>The services collection.</returns>
+		/// <exception cref="ArgumentOutOfRangeException"><see cref="HdFleetClientOptions.Timeout"/> is zero, negative, or longer than <see cref="int.MaxValue"/> milliseconds.</exception>
 		public IServiceCollection AddHdFleet(HdFleetClientOptions options) {
+			HdFleetClientOptions.ThrowIfInvalid(options);
 			AddHdFleetHttpClient(services);
 
 			//  Deviation from Carmine: the single-account overload also
@@ -47,8 +49,13 @@ public static class ServiceCollectionExtensions {
 	//  Utilities
 	//  ============================================================================
 
+	//  HttpClient.Timeout is disabled: the client applies
+	//  HdFleetClientOptions.Timeout per request through a linked token, so
+	//  there is one deadline, one detection path (TimedOut), and a configured
+	//  timeout above the BCL's 100 seconds is honoured.
 	private static void AddHdFleetHttpClient(
 		IServiceCollection services) => services.AddHttpClient(nameof(IHdFleetClient), hc => {
 			hc.BaseAddress = _baseAddress;
+			hc.Timeout = Timeout.InfiniteTimeSpan;
 		}).AddHttpMessageHandler(static () => new HdFleetRetryHandler());
 }

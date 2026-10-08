@@ -21,6 +21,15 @@ services.AddHdFleet(new HdFleetClientOptions {
 services.AddHdFleet();
 ```
 
+`HdFleetClientOptions.Timeout` sets the deadline for every request, transparent retries and their delays included. It defaults to 100 seconds, may be longer, and must be greater than zero (`AddHdFleet` and `CreateClient` throw `ArgumentOutOfRangeException` otherwise). The library owns this deadline: the named `HttpClient`'s own `Timeout` is set to infinite, so configure the value here rather than on the `HttpClient`.
+
+```c#
+services.AddHdFleet(new HdFleetClientOptions {
+    Key = "Your key from HD Fleet",
+    Timeout = TimeSpan.FromSeconds(30)
+});
+```
+
 
 
 #### How to Use
@@ -35,7 +44,7 @@ var vehicles = await _hdFleet.ListVehiclesAsync();
 var vehicle = await _hdFleet.GetVehicleAsync(new ExternalVehicleId("V-123"));
 ```
 
-For multiple accounts, inject the `IHdFleetClientFactory` to create an instance per account. Clients are cached per key — repeated calls with the same key return the same instance.
+For multiple accounts, inject the `IHdFleetClientFactory` to create an instance per account. Clients are cached per key and timeout — repeated calls with the same key and `Timeout` return the same instance, and a different `Timeout` gets its own client.
 
 ```c#
 private readonly IHdFleetClientFactory _hdFleetFactory;
@@ -59,7 +68,8 @@ var response = await _hdFleet.ListLatestLocationsAsync();
 if (!response.Success) {
     //  response.Errors carries the details; response.Status classifies them:
     //  Unauthorized (bad key), Forbidden (missing scope), RateLimited,
-    //  ServerError, Invalid (failed client-side validation), Cancelled, ...
+    //  ServerError, Invalid (failed client-side validation), Cancelled,
+    //  TimedOut (the request missed HdFleetClientOptions.Timeout), ...
     //  response.RequestId is HD Fleet's X-Request-ID — include it in support
     //  tickets.
     return;
@@ -71,7 +81,24 @@ foreach (var location in response.Locations) {
 }
 ```
 
-API failures, validation failures, and cancellation all come back as canned outcomes — never exceptions.
+API failures, validation failures, timeouts, and cancellation all come back as canned outcomes — never exceptions. `Cancelled` means your cancellation token fired; `TimedOut` means the client's own deadline fired while your token had not.
+
+Every response produced after a request was sent also carries `Metadata`, what the client observed about the HTTP exchange:
+
+```c#
+var metadata = response.Metadata;
+
+//  metadata.StatusCode, Date, Age, CacheControl, ETag — null when no response
+//  arrived (timeout, cancellation, transport failure).
+//  metadata.Headers — every response and content header, case-insensitive keys.
+//  metadata.Elapsed — wall-clock time of the exchange, retries included.
+//  metadata.RecordCount — records in the page before mapping; null when the
+//  body is not a page.
+//  metadata.BodyExcerpt — the first 512 characters of the body on a failure.
+//  metadata.FromCache — true when the fresh-poll gate answered.
+```
+
+`Metadata` is `null` only when the request was never sent: a validation failure, or a token that was already cancelled.
 
 
 
@@ -79,7 +106,7 @@ API failures, validation failures, and cancellation all come back as canned outc
 
 HD Fleet enforces minimum intervals between *fresh* calls per key: **60 seconds** on `/locations/latest` (and per new query on `/locations/history` and `/events`), **15 minutes** on `/vehicles` and `/drivers`. The client turns those floors into a response cache with matching TTLs, so you can poll at any interval safely:
 
-- Within the floor, you get the cached response with `FromCache = true` — no request goes out, and a floor-driven `429` is structurally impossible.
+- Within the floor, you get the cached response with `FromCache = true` — no request goes out, and a floor-driven `429` is structurally impossible. Its `Metadata` describes the original exchange, with `Metadata.FromCache = true`.
 - Outside the floor, a real request goes out and refreshes the cache.
 - Cursor continuation pages bypass the gate entirely (they are exempt from the floors, though they do count against quota).
 
@@ -98,9 +125,22 @@ await foreach (var driver in _hdFleet.StreamDriversAsync()) { }
 await foreach (var location in _hdFleet.StreamLocationHistoryAsync(from, to)) { }
 ```
 
-One honest caveat: a failed page request **ends the stream silently** — a truncated stream is indistinguishable from an exhausted one. Use the slice methods (`ListLatestLocationsAsync` etc.) when error visibility matters.
+An `IAsyncEnumerable<T>` has no response envelope, so the streams are the one place the library throws. A failed page throws `HdFleetException`, carrying the page's `Status`, `Errors`, `RequestId`, `Metadata` and relative `Endpoint`; items from earlier pages were already yielded, and the stream retries nothing beyond the transparent retries below. Cancelling your token throws `OperationCanceledException`, as usual.
 
-There are also convenience extensions: `GetLatestLocationAsync(vehicleId)` and `ListRecentLocationsAsync(within)` (the freshness filter is applied client-side).
+```c#
+try {
+    await foreach (var location in _hdFleet.StreamLatestLocationsAsync(cancellationToken, onResponse: metadata => {
+        //  Once per page that was sent, before its items are yielded:
+        //  metadata.FromCache, metadata.RecordCount, metadata.Elapsed, ...
+    })) { }
+} catch (HdFleetException e) when (e.Status == ResponseStatus.TimedOut) {
+    //  e.Message: "locations/latest?limit=200 returned TimedOut after 00:01:40.0: ..."
+}
+```
+
+Every `Stream*` helper takes the optional `onResponse` callback as its last parameter; pass it by name. A page that was never sent (a validation failure) skips the callback and throws `HdFleetException` with `Status = Invalid`.
+
+There are also convenience extensions: `GetLatestLocationAsync(vehicleId)` and `ListRecentLocationsAsync(within)` (the freshness filter is applied client-side). Both walk `StreamLatestLocationsAsync`, so they throw the same way.
 
 
 
@@ -160,4 +200,4 @@ Connections are then recycled at the pool level, picking up DNS changes without 
 
 #### Key Handling
 
-Authentication is a static bearer key sent per request on the `Authorization` header — never on `HttpClient.DefaultRequestHeaders`, so a pooled client can never leak one account's key into another's request. The raw key never appears in logs, exception messages, or error details; anything diagnostic uses its SHA-256 fingerprint.
+Authentication is a static bearer key sent per request on the `Authorization` header — never on `HttpClient.DefaultRequestHeaders`, so a pooled client can never leak one account's key into another's request. The raw key never appears in logs, exception messages, or error details; anything diagnostic uses its SHA-256 fingerprint. If HD Fleet echoes the key back in an error body or a response header, the client replaces it with `[redacted]` before storing it in `Errors`, `Metadata.BodyExcerpt` or `Metadata.Headers`.

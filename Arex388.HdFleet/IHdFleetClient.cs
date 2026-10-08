@@ -51,7 +51,7 @@ public interface IHdFleetClient {
 	/// <remarks>
 	/// Follow <c>NextCursor</c> inside the slice until null before moving to the
 	/// next sequence — or use
-	/// <see cref="HdFleetClientExtensions.StreamBackfillEventsAsync(IHdFleetClient, BackfillJobId, CancellationToken)"/>
+	/// <see cref="HdFleetClientExtensions.StreamBackfillEventsAsync(IHdFleetClient, BackfillJobId, CancellationToken, Action{ResponseMetadata})"/>
 	/// which implements the documented consumption protocol.
 	/// </remarks>
 	/// <param name="request">The <see cref="GetBackfillEventsPage.Request"/> request.</param>

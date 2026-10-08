@@ -1,9 +1,12 @@
+using NetEscapades.EnumGenerators;
+
 namespace Arex388.HdFleet;
 
 /// <summary>
 /// The request's outcome classification. <see cref="ResponseBase{TResponse}.Success"/> remains
 /// the primary check; branch on this when the failure class matters.
 /// </summary>
+[EnumExtensions(IsInternal = true)]
 public enum ResponseStatus :
 	byte {
 	/// <summary>
@@ -69,5 +72,11 @@ public enum ResponseStatus :
 	/// <summary>
 	/// The request failed for a reason not otherwise classified.
 	/// </summary>
-	Failed
+	Failed,
+
+	/// <summary>
+	/// The request did not complete within <see cref="HdFleetClientOptions.Timeout"/> and the
+	/// caller's cancellation token was not cancelled.
+	/// </summary>
+	TimedOut
 }

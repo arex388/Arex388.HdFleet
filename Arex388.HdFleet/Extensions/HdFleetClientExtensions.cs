@@ -1,3 +1,4 @@
+using System.Diagnostics.CodeAnalysis;
 using System.Runtime.CompilerServices;
 
 namespace Arex388.HdFleet;
@@ -19,12 +20,13 @@ public static class HdFleetClientExtensions {
 		/// </summary>
 		/// <param name="id">The vehicle's external id.</param>
 		/// <param name="cancellationToken">The cancellation token.</param>
-		/// <returns>An instance of <c>Location</c>.</returns>
+		/// <returns>An instance of <c>Location</c>, or <c>null</c> when the vehicle has no latest location.</returns>
+		/// <exception cref="HdFleetException">A page request failed.</exception>
+		/// <exception cref="OperationCanceledException">The request was cancelled.</exception>
 		/// <remarks>
-		/// Returns <c>null</c> both when the vehicle has no latest location and when
-		/// the underlying request failed — the two are indistinguishable here. Use
-		/// <see cref="IHdFleetClient.ListLatestLocationsAsync(ListLatestLocations.Request, CancellationToken)"/>
-		/// when error visibility matters.
+		/// Walks <see cref="StreamLatestLocationsAsync(IHdFleetClient, CancellationToken, Action{ResponseMetadata})"/>,
+		/// so a failed page request throws <see cref="HdFleetException"/> and cancellation throws
+		/// <see cref="OperationCanceledException"/>.
 		/// </remarks>
 		public async Task<Location?> GetLatestLocationAsync(
 			ExternalVehicleId id,
@@ -44,13 +46,14 @@ public static class HdFleetClientExtensions {
 		/// <param name="within">How far back a location's <c>RecordedAt</c> may be.</param>
 		/// <param name="cancellationToken">The cancellation token.</param>
 		/// <returns>A list of <c>Location</c>.</returns>
+		/// <exception cref="HdFleetException">A page request failed.</exception>
+		/// <exception cref="OperationCanceledException">The request was cancelled.</exception>
 		/// <remarks>
 		/// The freshness filter is applied client-side after the fact — it does not
-		/// change what the API returns. Returns an empty list both when no locations
-		/// are recent enough and when the underlying request failed — the two are
-		/// indistinguishable here. Use
-		/// <see cref="IHdFleetClient.ListLatestLocationsAsync(ListLatestLocations.Request, CancellationToken)"/>
-		/// when error visibility matters.
+		/// change what the API returns. Walks
+		/// <see cref="StreamLatestLocationsAsync(IHdFleetClient, CancellationToken, Action{ResponseMetadata})"/>,
+		/// so a failed page request throws <see cref="HdFleetException"/> and cancellation throws
+		/// <see cref="OperationCanceledException"/>.
 		/// </remarks>
 		public async Task<IReadOnlyList<Location>> ListRecentLocationsAsync(
 			TimeSpan within,
@@ -75,21 +78,27 @@ public static class HdFleetClientExtensions {
 		/// </summary>
 		/// <param name="jobId">The backfill job's id.</param>
 		/// <param name="cancellationToken">The cancellation token.</param>
+		/// <param name="onResponse">Invoked once per page that was sent, slice-list pages included, with that page's <see cref="ResponseMetadata"/>.</param>
 		/// <returns>An async stream of <c>Event</c>.</returns>
+		/// <exception cref="HdFleetException">A page request failed — including a <c>410</c> from an expired job mid-walk.</exception>
+		/// <exception cref="OperationCanceledException">The request was cancelled.</exception>
+		/// <exception cref="InvalidOperationException">The walk exceeded 100 slice-list pages or 100 pages in one slice.</exception>
 		/// <remarks>
-		/// The stream ends silently if any page request fails — including a
-		/// <c>410</c> from an expired job mid-walk; a truncated stream is
-		/// indistinguishable from an exhausted one here. Use
-		/// <see cref="IHdFleetClient.ListBackfillSlicesAsync(ListBackfillSlices.Request, CancellationToken)"/>
-		/// and
-		/// <see cref="IHdFleetClient.GetBackfillEventsPageAsync(GetBackfillEventsPage.Request, CancellationToken)"/>
-		/// when error visibility matters. Walks at most 100 slice-list pages and
-		/// 100 pages per slice, then throws <see cref="InvalidOperationException"/>.
+		/// A failed page request throws <see cref="HdFleetException"/> carrying that page's
+		/// status, errors, request id and metadata; events from earlier pages were already
+		/// yielded, and nothing is retried beyond the client's transparent retries. Caller
+		/// cancellation throws <see cref="OperationCanceledException"/>.
+		/// <paramref name="onResponse"/> runs before a page's events are yielded or its exception
+		/// is thrown; a page that was never sent (failed validation, or cancelled before
+		/// sending) skips it. Walks at most 100 slice-list pages and 100 pages per slice, then
+		/// throws <see cref="InvalidOperationException"/>.
 		/// </remarks>
+		[SuppressMessage("Design", "CA1068:CancellationToken parameters must come last", Justification = "The trailing optional callback keeps every existing positional call compiling.")]
 		public async IAsyncEnumerable<Event> StreamBackfillEventsAsync(
 			BackfillJobId jobId,
 			[EnumeratorCancellation]
-			CancellationToken cancellationToken = default) {
+			CancellationToken cancellationToken = default,
+			Action<ResponseMetadata>? onResponse = null) {
 			//	Collect every slice first — the walk must be strictly ordered by
 			//	sequence, and slice-list pages are not guaranteed to be.
 			var slices = new List<BackfillSlice>();
@@ -98,14 +107,13 @@ public static class HdFleetClientExtensions {
 			var pages = 0;
 
 			do {
-				var response = await client.ListBackfillSlicesAsync(new ListBackfillSlices.Request {
+				var request = new ListBackfillSlices.Request {
 					Cursor = cursor,
 					Id = jobId
-				}, cancellationToken).ConfigureAwait(false);
+				};
+				var response = await client.ListBackfillSlicesAsync(request, cancellationToken).ConfigureAwait(false);
 
-				if (!response.Success) {
-					yield break;
-				}
+				EnsurePage(response, onResponse, cancellationToken);
 
 				slices.AddRange(response.Slices);
 
@@ -122,14 +130,13 @@ public static class HdFleetClientExtensions {
 				var innerPages = 0;
 
 				do {
-					var response = await client.GetBackfillEventsPageAsync(new GetBackfillEventsPage.Request {
+					var request = new GetBackfillEventsPage.Request {
 						Cursor = inner,
 						SliceEndpoint = slice.Endpoint
-					}, cancellationToken).ConfigureAwait(false);
+					};
+					var response = await client.GetBackfillEventsPageAsync(request, cancellationToken).ConfigureAwait(false);
 
-					if (!response.Success) {
-						yield break;
-					}
+					EnsurePage(response, onResponse, cancellationToken);
 
 					foreach (var @event in response.Events) {
 						yield return @event;
@@ -149,30 +156,38 @@ public static class HdFleetClientExtensions {
 		/// Streams the account's drivers, walking cursor pages until exhaustion.
 		/// </summary>
 		/// <param name="cancellationToken">The cancellation token.</param>
+		/// <param name="onResponse">Invoked once per page that was sent, with that page's <see cref="ResponseMetadata"/>.</param>
 		/// <returns>An async stream of <c>Driver</c>.</returns>
+		/// <exception cref="HdFleetException">A page request failed.</exception>
+		/// <exception cref="OperationCanceledException">The request was cancelled.</exception>
+		/// <exception cref="InvalidOperationException">The walk exceeded 100 pages.</exception>
 		/// <remarks>
-		/// The stream ends silently if a page request fails — a truncated stream is
-		/// indistinguishable from an exhausted one here. Use
-		/// <see cref="IHdFleetClient.ListDriversAsync(ListDrivers.Request, CancellationToken)"/>
-		/// when error visibility matters. Cursor continuation pages bypass the
-		/// fresh-poll gate. Walks at most 100 pages, then throws
-		/// <see cref="InvalidOperationException"/> — a server returning a cursor
-		/// forever must not spin.
+		/// A failed page request throws <see cref="HdFleetException"/> carrying that page's
+		/// status, errors, request id and metadata; drivers from earlier pages were already
+		/// yielded, and nothing is retried beyond the client's transparent retries. Caller
+		/// cancellation throws <see cref="OperationCanceledException"/>.
+		/// <paramref name="onResponse"/> runs before a page's items are yielded or its exception
+		/// is thrown, and reports <see cref="ResponseMetadata.FromCache"/> when the first page
+		/// came from the fresh-poll gate; a page that was never sent (failed validation, or
+		/// cancelled before sending) skips it. Cursor continuation pages bypass the fresh-poll
+		/// gate. Walks at most 100 pages, then throws <see cref="InvalidOperationException"/> — a
+		/// server returning a cursor forever must not spin.
 		/// </remarks>
+		[SuppressMessage("Design", "CA1068:CancellationToken parameters must come last", Justification = "The trailing optional callback keeps every existing positional call compiling.")]
 		public async IAsyncEnumerable<Driver> StreamDriversAsync(
 			[EnumeratorCancellation]
-			CancellationToken cancellationToken = default) {
+			CancellationToken cancellationToken = default,
+			Action<ResponseMetadata>? onResponse = null) {
 			string? cursor = null;
 			var pages = 0;
 
 			do {
-				var response = await client.ListDriversAsync(new ListDrivers.Request {
+				var request = new ListDrivers.Request {
 					Cursor = cursor
-				}, cancellationToken).ConfigureAwait(false);
+				};
+				var response = await client.ListDriversAsync(request, cancellationToken).ConfigureAwait(false);
 
-				if (!response.Success) {
-					yield break;
-				}
+				EnsurePage(response, onResponse, cancellationToken);
 
 				foreach (var driver in response.Drivers) {
 					yield return driver;
@@ -194,36 +209,44 @@ public static class HdFleetClientExtensions {
 		/// <param name="from">The window's start timestamp.</param>
 		/// <param name="to">The window's end timestamp. No more than 15 minutes after <paramref name="from"/>.</param>
 		/// <param name="cancellationToken">The cancellation token.</param>
+		/// <param name="onResponse">Invoked once per page that was sent, with that page's <see cref="ResponseMetadata"/>.</param>
 		/// <returns>An async stream of <c>Location</c>.</returns>
+		/// <exception cref="HdFleetException">A page request failed, including a window that failed client-side validation.</exception>
+		/// <exception cref="OperationCanceledException">The request was cancelled.</exception>
+		/// <exception cref="InvalidOperationException">The walk exceeded 100 pages.</exception>
 		/// <remarks>
 		/// Walks cursors within the given window only — it never advances the
 		/// window; a day of history belongs to the backfills workflow, not this
-		/// endpoint. The stream ends silently if a page request fails — a
-		/// truncated stream is indistinguishable from an exhausted one here. Use
-		/// <see cref="IHdFleetClient.ListLocationHistoryAsync(ListLocationHistory.Request, CancellationToken)"/>
-		/// when error visibility matters. Cursor continuation pages bypass the
-		/// fresh-poll gate. Walks at most 100 pages, then throws
-		/// <see cref="InvalidOperationException"/> — a server returning a cursor
-		/// forever must not spin.
+		/// endpoint. A failed page request throws <see cref="HdFleetException"/> carrying that
+		/// page's status, errors, request id and metadata; locations from earlier pages were
+		/// already yielded, and nothing is retried beyond the client's transparent retries.
+		/// Caller cancellation throws <see cref="OperationCanceledException"/>.
+		/// <paramref name="onResponse"/> runs before a page's items are yielded or its exception
+		/// is thrown, and reports <see cref="ResponseMetadata.FromCache"/> when the first page
+		/// came from the fresh-poll gate; a page that was never sent (failed validation, or
+		/// cancelled before sending) skips it. Cursor continuation pages bypass the fresh-poll
+		/// gate. Walks at most 100 pages, then throws <see cref="InvalidOperationException"/> — a
+		/// server returning a cursor forever must not spin.
 		/// </remarks>
+		[SuppressMessage("Design", "CA1068:CancellationToken parameters must come last", Justification = "The trailing optional callback keeps every existing positional call compiling.")]
 		public async IAsyncEnumerable<Location> StreamLocationHistoryAsync(
 			DateTimeOffset from,
 			DateTimeOffset to,
 			[EnumeratorCancellation]
-			CancellationToken cancellationToken = default) {
+			CancellationToken cancellationToken = default,
+			Action<ResponseMetadata>? onResponse = null) {
 			string? cursor = null;
 			var pages = 0;
 
 			do {
-				var response = await client.ListLocationHistoryAsync(new ListLocationHistory.Request {
+				var request = new ListLocationHistory.Request {
 					Cursor = cursor,
 					From = from,
 					To = to
-				}, cancellationToken).ConfigureAwait(false);
+				};
+				var response = await client.ListLocationHistoryAsync(request, cancellationToken).ConfigureAwait(false);
 
-				if (!response.Success) {
-					yield break;
-				}
+				EnsurePage(response, onResponse, cancellationToken);
 
 				foreach (var location in response.Locations) {
 					yield return location;
@@ -243,30 +266,38 @@ public static class HdFleetClientExtensions {
 		/// pages until exhaustion.
 		/// </summary>
 		/// <param name="cancellationToken">The cancellation token.</param>
+		/// <param name="onResponse">Invoked once per page that was sent, with that page's <see cref="ResponseMetadata"/>.</param>
 		/// <returns>An async stream of <c>Location</c>.</returns>
+		/// <exception cref="HdFleetException">A page request failed.</exception>
+		/// <exception cref="OperationCanceledException">The request was cancelled.</exception>
+		/// <exception cref="InvalidOperationException">The walk exceeded 100 pages.</exception>
 		/// <remarks>
-		/// The stream ends silently if a page request fails — a truncated stream is
-		/// indistinguishable from an exhausted one here. Use
-		/// <see cref="IHdFleetClient.ListLatestLocationsAsync(ListLatestLocations.Request, CancellationToken)"/>
-		/// when error visibility matters. Cursor continuation pages bypass the
-		/// fresh-poll gate. Walks at most 100 pages, then throws
-		/// <see cref="InvalidOperationException"/> — a server returning a cursor
-		/// forever must not spin.
+		/// A failed page request throws <see cref="HdFleetException"/> carrying that page's
+		/// status, errors, request id and metadata; locations from earlier pages were already
+		/// yielded, and nothing is retried beyond the client's transparent retries. Caller
+		/// cancellation throws <see cref="OperationCanceledException"/>.
+		/// <paramref name="onResponse"/> runs before a page's items are yielded or its exception
+		/// is thrown, and reports <see cref="ResponseMetadata.FromCache"/> when the first page
+		/// came from the fresh-poll gate; a page that was never sent (failed validation, or
+		/// cancelled before sending) skips it. Cursor continuation pages bypass the fresh-poll
+		/// gate. Walks at most 100 pages, then throws <see cref="InvalidOperationException"/> — a
+		/// server returning a cursor forever must not spin.
 		/// </remarks>
+		[SuppressMessage("Design", "CA1068:CancellationToken parameters must come last", Justification = "The trailing optional callback keeps every existing positional call compiling.")]
 		public async IAsyncEnumerable<Location> StreamLatestLocationsAsync(
 			[EnumeratorCancellation]
-			CancellationToken cancellationToken = default) {
+			CancellationToken cancellationToken = default,
+			Action<ResponseMetadata>? onResponse = null) {
 			string? cursor = null;
 			var pages = 0;
 
 			do {
-				var response = await client.ListLatestLocationsAsync(new ListLatestLocations.Request {
+				var request = new ListLatestLocations.Request {
 					Cursor = cursor
-				}, cancellationToken).ConfigureAwait(false);
+				};
+				var response = await client.ListLatestLocationsAsync(request, cancellationToken).ConfigureAwait(false);
 
-				if (!response.Success) {
-					yield break;
-				}
+				EnsurePage(response, onResponse, cancellationToken);
 
 				foreach (var location in response.Locations) {
 					yield return location;
@@ -285,30 +316,38 @@ public static class HdFleetClientExtensions {
 		/// Streams the account's vehicles, walking cursor pages until exhaustion.
 		/// </summary>
 		/// <param name="cancellationToken">The cancellation token.</param>
+		/// <param name="onResponse">Invoked once per page that was sent, with that page's <see cref="ResponseMetadata"/>.</param>
 		/// <returns>An async stream of <c>Vehicle</c>.</returns>
+		/// <exception cref="HdFleetException">A page request failed.</exception>
+		/// <exception cref="OperationCanceledException">The request was cancelled.</exception>
+		/// <exception cref="InvalidOperationException">The walk exceeded 100 pages.</exception>
 		/// <remarks>
-		/// The stream ends silently if a page request fails — a truncated stream is
-		/// indistinguishable from an exhausted one here. Use
-		/// <see cref="IHdFleetClient.ListVehiclesAsync(ListVehicles.Request, CancellationToken)"/>
-		/// when error visibility matters. Cursor continuation pages bypass the
-		/// fresh-poll gate. Walks at most 100 pages, then throws
-		/// <see cref="InvalidOperationException"/> — a server returning a cursor
-		/// forever must not spin.
+		/// A failed page request throws <see cref="HdFleetException"/> carrying that page's
+		/// status, errors, request id and metadata; vehicles from earlier pages were already
+		/// yielded, and nothing is retried beyond the client's transparent retries. Caller
+		/// cancellation throws <see cref="OperationCanceledException"/>.
+		/// <paramref name="onResponse"/> runs before a page's items are yielded or its exception
+		/// is thrown, and reports <see cref="ResponseMetadata.FromCache"/> when the first page
+		/// came from the fresh-poll gate; a page that was never sent (failed validation, or
+		/// cancelled before sending) skips it. Cursor continuation pages bypass the fresh-poll
+		/// gate. Walks at most 100 pages, then throws <see cref="InvalidOperationException"/> — a
+		/// server returning a cursor forever must not spin.
 		/// </remarks>
+		[SuppressMessage("Design", "CA1068:CancellationToken parameters must come last", Justification = "The trailing optional callback keeps every existing positional call compiling.")]
 		public async IAsyncEnumerable<Vehicle> StreamVehiclesAsync(
 			[EnumeratorCancellation]
-			CancellationToken cancellationToken = default) {
+			CancellationToken cancellationToken = default,
+			Action<ResponseMetadata>? onResponse = null) {
 			string? cursor = null;
 			var pages = 0;
 
 			do {
-				var response = await client.ListVehiclesAsync(new ListVehicles.Request {
+				var request = new ListVehicles.Request {
 					Cursor = cursor
-				}, cancellationToken).ConfigureAwait(false);
+				};
+				var response = await client.ListVehiclesAsync(request, cancellationToken).ConfigureAwait(false);
 
-				if (!response.Success) {
-					yield break;
-				}
+				EnsurePage(response, onResponse, cancellationToken);
 
 				foreach (var vehicle in response.Vehicles) {
 					yield return vehicle;
@@ -322,5 +361,34 @@ public static class HdFleetClientExtensions {
 				}
 			} while (cursor.HasValue());
 		}
+	}
+
+	//	============================================================================
+	//	Utilities
+	//	============================================================================
+
+	//	Report the page, then fail loudly: an IAsyncEnumerable has no return
+	//	envelope, so an exception is the only honest signal for a failed page.
+	//	Cancellation keeps its idiomatic exception type so callers'
+	//	`when (ct.IsCancellationRequested)` filters still match. A page that
+	//	was never sent has no metadata and skips the callback.
+	private static void EnsurePage<TResponse>(
+		ResponseBase<TResponse> response,
+		Action<ResponseMetadata>? onResponse,
+		CancellationToken cancellationToken)
+		where TResponse : ResponseBase<TResponse>, new() {
+		if (response.Metadata is not null) {
+			onResponse?.Invoke(response.Metadata);
+		}
+
+		if (response.Success) {
+			return;
+		}
+
+		if (response.Status == ResponseStatus.Cancelled) {
+			throw new OperationCanceledException(response.Errors[0], cancellationToken);
+		}
+
+		throw new HdFleetException(response.Endpoint ?? string.Empty, response.Status, response.Errors, response.RequestId, response.Metadata);
 	}
 }

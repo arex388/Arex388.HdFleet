@@ -37,6 +37,59 @@ public sealed class HdFleetClientFactoryTests {
 		a.Should().NotBeSameAs(b);
 	}
 
+	[Fact]
+	public void CreateClient_SameKeyDifferentTimeouts_ReturnDifferentInstances() {
+		using var provider = CreateProvider();
+
+		var factory = provider.GetRequiredService<IHdFleetClientFactory>();
+
+		var a = factory.CreateClient(new HdFleetClientOptions {
+			Key = "key-1"
+		});
+		var b = factory.CreateClient(new HdFleetClientOptions {
+			Key = "key-1",
+			Timeout = TimeSpan.FromSeconds(30)
+		});
+		var c = factory.CreateClient(new HdFleetClientOptions {
+			Key = "key-1",
+			Timeout = TimeSpan.FromSeconds(30)
+		});
+
+		a.Should().NotBeSameAs(b, "a later caller with a different timeout must not inherit the first caller's");
+		b.Should().BeSameAs(c);
+	}
+
+	[Fact]
+	public void CreateClient_NullAndDefaultTimeout_ReturnSameInstance() {
+		using var provider = CreateProvider();
+
+		var factory = provider.GetRequiredService<IHdFleetClientFactory>();
+
+		var a = factory.CreateClient(new HdFleetClientOptions {
+			Key = "key-1"
+		});
+		var b = factory.CreateClient(new HdFleetClientOptions {
+			Key = "key-1",
+			Timeout = TimeSpan.FromSeconds(100)
+		});
+
+		a.Should().BeSameAs(b, "null and an explicit 100 seconds are the same effective timeout");
+	}
+
+	[Fact]
+	public void CreateClient_ZeroTimeout_Throws() {
+		using var provider = CreateProvider();
+
+		var factory = provider.GetRequiredService<IHdFleetClientFactory>();
+
+		var act = () => factory.CreateClient(new HdFleetClientOptions {
+			Key = "key-1",
+			Timeout = TimeSpan.Zero
+		});
+
+		act.Should().Throw<ArgumentOutOfRangeException>();
+	}
+
 	private static ServiceProvider CreateProvider() {
 		var services = new ServiceCollection();
 

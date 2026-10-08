@@ -18,11 +18,13 @@ internal static class TestClients {
 
 	public static ServiceProvider CreateProvider(
 		HttpMessageHandler handler,
-		string key = ApiKey) {
+		string key = ApiKey,
+		TimeSpan? timeout = null) {
 		var services = new ServiceCollection();
 
 		services.AddHdFleet(new HdFleetClientOptions {
-			Key = key
+			Key = key,
+			Timeout = timeout
 		}).AddHttpClient(nameof(IHdFleetClient), hc => hc.BaseAddress = new Uri("https://localhost:9/api/external/v1/"))
 		  .ConfigurePrimaryHttpMessageHandler(() => handler);
 

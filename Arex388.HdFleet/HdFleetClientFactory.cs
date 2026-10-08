@@ -1,5 +1,6 @@
 using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.DependencyInjection;
+using System.Globalization;
 
 namespace Arex388.HdFleet;
 
@@ -19,7 +20,18 @@ internal sealed class HdFleetClientFactory(
 	/// <inheritdoc />
 	public IHdFleetClient CreateClient(
 		HdFleetClientOptions options) {
-		var key = $"{nameof(Arex388)}.{nameof(HdFleet)}.Key[{options.Key}]";
+		HdFleetClientOptions.ThrowIfInvalid(options);
+
+		//  One client per account and effective timeout: a later caller with a
+		//  different Timeout gets its own client rather than silently inheriting
+		//  the first caller's. The fingerprint keeps the raw key out of the
+		//  cache key.
+		var key = string.Concat(
+			"Arex388.HdFleet.Client[",
+			options.Fingerprint,
+			"][",
+			options.EffectiveTimeout.Ticks.ToString(CultureInfo.InvariantCulture),
+			"]");
 
 		//  Fast path: cache hits skip the lock and entry-options work entirely.
 		if (_cache.TryGetValue<Lazy<IHdFleetClient>>(key, out var cached)) {

@@ -20,6 +20,22 @@ public sealed class FreshPollGateTests {
 	}
 
 	[Fact]
+	public async Task CacheHit_CarriesOriginalMetadata_MarkedFromCache() {
+		var client = TestClients.CreateWithJson("{ \"data\": [ { \"externalVehicleId\": \"V-1\" } ] }", out _);
+
+		var first = await client.ListVehiclesAsync();
+		var second = await client.ListVehiclesAsync();
+
+		second.FromCache.Should().BeTrue();
+		second.Metadata.Should().NotBeNull();
+		second.Metadata.FromCache.Should().BeTrue();
+		second.Metadata.StatusCode.Should().Be(first.Metadata!.StatusCode);
+		second.Metadata.Elapsed.Should().Be(first.Metadata.Elapsed, "every other field is the original exchange's");
+		second.Metadata.RecordCount.Should().Be(1);
+		first.Metadata.FromCache.Should().BeFalse("the stored instance the fresh caller holds must not change");
+	}
+
+	[Fact]
 	public async Task CursorContinuations_AreNotGated() {
 		var client = TestClients.CreateWithJson("{ \"data\": [] }", out var handler);
 

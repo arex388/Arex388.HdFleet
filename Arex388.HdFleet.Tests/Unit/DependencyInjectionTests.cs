@@ -37,4 +37,32 @@ public sealed class DependencyInjectionTests {
 		provider.GetService<HdFleetClientOptions>().Should().NotBeNull();
 		provider.GetService<IMemoryCache>().Should().NotBeNull("the single-account overload must also register the memory cache — the fresh-poll gate needs it in both modes");
 	}
+
+	[Theory]
+	[InlineData(0)]
+	[InlineData(-1)]
+	public void AddHdFleet_NonPositiveTimeout_Throws(
+		int milliseconds) {
+		var services = new ServiceCollection();
+
+		var act = () => services.AddHdFleet(new HdFleetClientOptions {
+			Key = "single-account-key",
+			Timeout = TimeSpan.FromMilliseconds(milliseconds)
+		});
+
+		act.Should().Throw<ArgumentOutOfRangeException>();
+	}
+
+	[Fact]
+	public void AddHdFleet_DisablesHttpClientTimeout() {
+		var services = new ServiceCollection();
+
+		services.AddHdFleet();
+
+		using var provider = services.BuildServiceProvider();
+
+		var httpClient = provider.GetRequiredService<IHttpClientFactory>().CreateClient(nameof(IHdFleetClient));
+
+		httpClient.Timeout.Should().Be(Timeout.InfiniteTimeSpan, "the library's own deadline is the only one");
+	}
 }

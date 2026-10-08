@@ -1,0 +1,8 @@
+{
+  "error": {
+    "code": "unauthorized",
+    "message": "The API key unit-test-key is not valid.",
+    "requestId": "req-echo-1",
+    "details": "Authorization: Bearer unit-test-key was rejected."
+  }
+}

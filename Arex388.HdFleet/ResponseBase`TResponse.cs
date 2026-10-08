@@ -8,6 +8,11 @@ namespace Arex388.HdFleet;
 /// <typeparam name="TResponse">The response's type.</typeparam>
 public abstract class ResponseBase<TResponse>
 	where TResponse : ResponseBase<TResponse>, new() {
+	//	The request's relative endpoint with the key redacted — what the
+	//	Stream* helpers name in an HdFleetException. Set on every response the
+	//	client returns, including Invalid and pre-send Cancelled.
+	internal string? Endpoint { get; set; }
+
 	/// <summary>
 	/// The request's errors, if any.
 	/// </summary>
@@ -17,6 +22,15 @@ public abstract class ResponseBase<TResponse>
 	/// Whether the response was served from the fresh-poll cache instead of a live request.
 	/// </summary>
 	public bool FromCache { get; internal set; }
+
+	/// <summary>
+	/// What the client observed about the HTTP exchange behind this response. Set on every
+	/// response produced after a request was sent — success, HTTP failure, timeout, transport
+	/// failure or mid-flight cancellation; <c>null</c> only when the request was never sent
+	/// (<see cref="ResponseStatus.Invalid"/>, or <see cref="ResponseStatus.Cancelled"/> before
+	/// sending).
+	/// </summary>
+	public ResponseMetadata? Metadata { get; internal set; }
 
 	/// <summary>
 	/// The request id echoed by HD Fleet (<c>X-Request-ID</c>, or <c>error.requestId</c>), if any.
@@ -33,6 +47,13 @@ public abstract class ResponseBase<TResponse>
 	/// </summary>
 	public bool Success => Errors.Count == 0;
 
+	internal TResponse WithMetadata(
+		ResponseMetadata metadata) {
+		Metadata = metadata;
+
+		return (TResponse)this;
+	}
+
 	//	A gate cache hit must not mutate the stored instance — the fresh caller
 	//	holds the same reference and its FromCache would retroactively flip.
 	//	A shallow copy is safe: the payload and Errors are read-only.
@@ -40,6 +61,7 @@ public abstract class ResponseBase<TResponse>
 		var clone = (TResponse)MemberwiseClone();
 
 		clone.FromCache = true;
+		clone.Metadata = Metadata?.WithFromCache();
 
 		return clone;
 	}
