@@ -269,6 +269,34 @@ public sealed class ResponseContractTests {
 	}
 
 	[Fact]
+	public async Task RecordCount_IsTheWireArrayLength_WhenAnItemFailsToDeserialize() {
+		var client = TestClients.CreateWithJson("{ \"data\": [ { \"externalVehicleId\": \"V-1\" }, \"bad\" ] }", out _);
+
+		var response = await client.ListVehiclesAsync();
+
+		response.Success.Should().BeFalse("the second element is not an object");
+		response.Status.Should().Be(ResponseStatus.Failed);
+		response.Metadata.Should().NotBeNull();
+		response.Metadata.RecordCount.Should().Be(2, "the count is read from the wire, not from the converter that threw");
+		response.Metadata.BodyExcerpt.Should().NotBeNull();
+	}
+
+	[Theory]
+	[InlineData("[ 1 ]")]
+	[InlineData("{ \"data\": \"bad\" } trailing")]
+	[InlineData("{ \"data\": { \"externalVehicleId\": \"V-1\" } } trailing")]
+	[InlineData("{ \"data\": [ { \"externalVehicleId\": \"V-1\" } ] } trailing")]
+	public async Task RecordCount_IsNull_WhenDeserializationFails_AndDataIsNotAnArray(
+		string json) {
+		var client = TestClients.CreateWithJson(json, out _);
+
+		var response = await client.ListVehiclesAsync();
+
+		response.Success.Should().BeFalse();
+		response.Metadata!.RecordCount.Should().BeNull();
+	}
+
+	[Fact]
 	public async Task TransportException_CarriesMetadataWithoutStatusCode() {
 		var client = TestClients.Create(new ThrowingHandler());
 

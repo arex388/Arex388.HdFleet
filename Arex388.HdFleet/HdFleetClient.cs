@@ -333,8 +333,16 @@ internal sealed class HdFleetClient(
 			try {
 				model = JsonSerializer.Deserialize<TModel>(body, _jsonSerializerOptions);
 			} catch (Exception e) {
+				//  The page converter counts records as it walks data, so a
+				//  converter that throws on one element loses the count; a
+				//  second pass over the buffered body recovers it for the
+				//  failure metadata.
+				var recordCount = typeof(Page).IsAssignableFrom(typeof(TModel))
+					? CountWireRecords(body)
+					: null;
+
 				return ResponseBase<TResponse>.FailedWith(ResponseStatus.Failed, Redact(GetExceptionDetail(e)), requestId)
-											  .WithMetadata(CompleteMetadata(arrived, stopwatch.Elapsed, null, GetBodyExcerpt(body)));
+											  .WithMetadata(CompleteMetadata(arrived, stopwatch.Elapsed, recordCount, GetBodyExcerpt(body)));
 			}
 
 			var response = map(model);
@@ -415,6 +423,58 @@ internal sealed class HdFleetClient(
 			Headers = headers,
 			StatusCode = response.StatusCode
 		};
+	}
+
+	//  The element count of the top-level data array, null elements
+	//  included, read without the item converters so a malformed element
+	//  cannot stop the count. Null when the body is not an object, has no
+	//  data property, or data is not an array; malformed JSON is null too,
+	//  never an exception — this runs on a path that has already failed.
+	private static int? CountWireRecords(
+		byte[] body) {
+		try {
+			var reader = new Utf8JsonReader(body);
+
+			if (!reader.Read() || reader.TokenType != JsonTokenType.StartObject) {
+				return null;
+			}
+
+			while (reader.Read() && reader.TokenType != JsonTokenType.EndObject) {
+				if (reader.TokenType != JsonTokenType.PropertyName) {
+					continue;
+				}
+
+				if (!reader.ValueTextEquals("data"u8)) {
+					reader.Skip();
+
+					continue;
+				}
+
+				if (!reader.Read() || reader.TokenType != JsonTokenType.StartArray) {
+					return null;
+				}
+
+				var count = 0;
+
+				while (reader.Read() && reader.TokenType != JsonTokenType.EndArray) {
+					reader.Skip();
+
+					count++;
+				}
+
+				//  Drain the rest of the document so trailing content or an
+				//  unterminated envelope surfaces as a JsonException and the
+				//  count is withheld, as it would be for any malformed body.
+				while (reader.Read()) {
+				}
+
+				return count;
+			}
+
+			return null;
+		} catch (JsonException) {
+			return null;
+		}
 	}
 
 	//  The captured status and headers (if a response arrived) plus what is
