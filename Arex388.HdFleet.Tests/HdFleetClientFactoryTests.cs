@@ -1,4 +1,5 @@
 using Arex388.HdFleet.Testing;
+using Arex388.HdFleet.Tests.Unit;
 using FluentAssertions;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -74,6 +75,47 @@ public sealed class HdFleetClientFactoryTests {
 		});
 
 		a.Should().BeSameAs(b, "null and an explicit 100 seconds are the same effective timeout");
+	}
+
+	[Fact]
+	public void CreateClient_SizeLimitedCache_ReturnsSameInstance() {
+		using var provider = TestClients.CreateFactoryProvider(
+			new MockHttpMessageHandler(),
+			services => services.AddMemoryCache(o => o.SizeLimit = 2));
+
+		var factory = provider.GetRequiredService<IHdFleetClientFactory>();
+
+		var a = factory.CreateClient(new HdFleetClientOptions {
+			Key = "key-1"
+		});
+		var b = factory.CreateClient(new HdFleetClientOptions {
+			Key = "key-1"
+		});
+
+		a.Should().NotBeNull();
+		a.Should().BeSameAs(b, "the entry must be stored under a size-limited cache, not silently skipped");
+	}
+
+	[Fact]
+	public void CreateClient_SizeLimitBelowClientCount_ReturnsClientForEveryCall() {
+		using var provider = TestClients.CreateFactoryProvider(
+			new MockHttpMessageHandler(),
+			services => services.AddMemoryCache(o => o.SizeLimit = 1));
+
+		var factory = provider.GetRequiredService<IHdFleetClientFactory>();
+
+		var clients = Enumerable.Range(1, 3).Select(i => factory.CreateClient(new HdFleetClientOptions {
+			Key = $"key-{i}"
+		})).ToList();
+
+		clients.Should().HaveCount(3).And.NotContainNulls();
+		clients.Should().OnlyHaveUniqueItems("each key gets its own client whether the cache kept the entry or evicted it");
+
+		var again = factory.CreateClient(new HdFleetClientOptions {
+			Key = "key-3"
+		});
+
+		again.Should().NotBeNull();
 	}
 
 	[Fact]

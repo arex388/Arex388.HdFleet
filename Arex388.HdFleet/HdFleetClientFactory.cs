@@ -9,8 +9,9 @@ internal sealed class HdFleetClientFactory(
 	IMemoryCache cache) :
 	IHdFleetClientFactory {
 	private static readonly MemoryCacheEntryOptions _memoryCacheEntryOptions = new() {
-		SlidingExpiration = TimeSpan.FromHours(1),
 		AbsoluteExpirationRelativeToNow = TimeSpan.FromHours(24),
+		Size = 1,
+		SlidingExpiration = TimeSpan.FromHours(1),
 	};
 
 	private readonly IServiceProvider _services = services;

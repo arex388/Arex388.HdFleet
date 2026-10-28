@@ -35,8 +35,11 @@ internal static class TestClients {
 	}
 
 	public static ServiceProvider CreateFactoryProvider(
-		HttpMessageHandler handler) {
+		HttpMessageHandler handler,
+		Action<IServiceCollection>? configure = null) {
 		var services = new ServiceCollection();
+
+		configure?.Invoke(services);
 
 		services.AddHdFleet()
 				.AddHttpClient(nameof(IHdFleetClient), hc => hc.BaseAddress = new Uri("https://localhost:9/api/external/v1/"))
