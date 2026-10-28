@@ -280,13 +280,19 @@ internal sealed class HdFleetClient(
 		//  token has not, the outcome is TimedOut rather than Cancelled.
 		using var deadline = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
 
-		deadline.CancelAfter(_options.EffectiveTimeout);
+		//  The same deadline as a monotonic Stopwatch timestamp, read at the
+		//  moment the source is armed; it rides the outgoing request so the
+		//  retry handler can tell a wait that cannot finish in time.
+		var timeout = _options.EffectiveTimeout;
+		var deadlineTimestamp = Stopwatch.GetTimestamp() + (long)(timeout.TotalSeconds * Stopwatch.Frequency);
+
+		deadline.CancelAfter(timeout);
 
 		if (!freshPollFloor.HasValue) {
-			return await SendFreshAsync(request, endpoint, map, cancellationToken, deadline.Token).ConfigureAwait(false);
+			return await SendFreshAsync(request, endpoint, map, deadlineTimestamp, cancellationToken, deadline.Token).ConfigureAwait(false);
 		}
 
-		var response = await _freshPollGate.SendAsync(_options.Key, endpoint, freshPollFloor.Value, () => SendFreshAsync(request, endpoint, map, cancellationToken, deadline.Token), deadline.Token).ConfigureAwait(false);
+		var response = await _freshPollGate.SendAsync(_options.Key, endpoint, freshPollFloor.Value, () => SendFreshAsync(request, endpoint, map, deadlineTimestamp, cancellationToken, deadline.Token), deadline.Token).ConfigureAwait(false);
 
 		//  The gate reports a fired wait token as Cancelled; when the caller's
 		//  own token has not fired, that was the deadline. No request was sent
@@ -307,6 +313,7 @@ internal sealed class HdFleetClient(
 		TRequest request,
 		string endpoint,
 		Func<TModel?, TResponse?> map,
+		long deadlineTimestamp,
 		CancellationToken cancellationToken,
 		CancellationToken deadlineToken)
 		where TRequest : RequestBase
@@ -324,6 +331,7 @@ internal sealed class HdFleetClient(
 
 			httpRequest.Content = request.GetContent();
 			httpRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", _options.Key);
+			httpRequest.Properties[HdFleetRetryHandler.DeadlineKey] = deadlineTimestamp;
 
 			stopwatch.Start();
 

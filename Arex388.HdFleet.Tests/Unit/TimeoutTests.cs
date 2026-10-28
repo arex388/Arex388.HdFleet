@@ -102,9 +102,10 @@ public sealed class TimeoutTests {
 	}
 
 	[Fact]
-	public async Task Deadline_CoversRetryHandlerDelay() {
-		//	A 429 with Retry-After: 2 makes the retry handler wait two seconds;
-		//	the 200 ms deadline must cut that wait short.
+	public async Task RetryAfterPastDeadline_ReturnsRateLimited_WithoutTheDelay() {
+		//	A 429 with Retry-After: 2 would make the retry handler wait two
+		//	seconds, which the 200 ms deadline cannot fit; the handler returns
+		//	the 429 at once rather than sleeping into a TimedOut.
 		var handler = new RetryAfterHandler(TimeSpan.FromSeconds(2));
 
 		using var provider = TestClients.CreateProvider(handler, timeout: TimeSpan.FromMilliseconds(200));
@@ -116,8 +117,8 @@ public sealed class TimeoutTests {
 
 		stopwatch.Stop();
 
-		response.Status.Should().Be(ResponseStatus.TimedOut);
-		stopwatch.Elapsed.Should().BeLessThan(TimeSpan.FromSeconds(1.5), "the deadline fires during the retry delay");
+		response.Status.Should().Be(ResponseStatus.RateLimited);
+		stopwatch.Elapsed.Should().BeLessThan(TimeSpan.FromSeconds(1.5), "the handler does not sleep a Retry-After the deadline cannot fit");
 		handler.Requests.Should().Be(1, "the retry never went out");
 	}
 

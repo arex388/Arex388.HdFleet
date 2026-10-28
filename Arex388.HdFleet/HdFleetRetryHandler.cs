@@ -1,4 +1,6 @@
+using System.Diagnostics;
 using System.Net;
+using System.Runtime.CompilerServices;
 
 namespace Arex388.HdFleet;
 
@@ -11,6 +13,10 @@ namespace Arex388.HdFleet;
 //	pooling stays safe across accounts.
 internal sealed class HdFleetRetryHandler :
 	DelegatingHandler {
+	//	The HttpRequestMessage.Properties key under which the client stamps the
+	//	request's deadline, a long Stopwatch timestamp.
+	internal const string DeadlineKey = "Arex388.HdFleet.Deadline";
+
 	private static readonly int[] _backoffSeconds = [1, 4, 12];
 
 	//	Random.Shared is .NET 6+ — a [ThreadStatic] instance avoids both the
@@ -40,6 +46,13 @@ internal sealed class HdFleetRetryHandler :
 
 			delay += GetJitter();
 
+			//	A wait that cannot finish before the request's deadline is not
+			//	taken: the response is returned as it is, so the caller sees the
+			//	API's own 429/500/503 instead of a TimedOut after a long sleep.
+			if (!FitsDeadline(request, delay)) {
+				return response;
+			}
+
 			response.Dispose();
 
 			await Task.Delay(delay, cancellationToken).ConfigureAwait(false);
@@ -49,6 +62,24 @@ internal sealed class HdFleetRetryHandler :
 	//  ============================================================================
 	//  Utilities
 	//  ============================================================================
+
+	//	The client stamps each request with its deadline as a Stopwatch
+	//	timestamp (a monotonic reading, since the pooled handler has no clock
+	//	to inject). A request with no stamp, or one of another type, has no
+	//	deadline to respect.
+	[MethodImpl(MethodImplOptions.AggressiveInlining)]
+	private static bool FitsDeadline(
+		HttpRequestMessage request,
+		TimeSpan delay) {
+		if (!request.Properties.TryGetValue(DeadlineKey, out var stamp)
+			|| stamp is not long deadline) {
+			return true;
+		}
+
+		var delayTicks = (long)(delay.TotalSeconds * Stopwatch.Frequency);
+
+		return Stopwatch.GetTimestamp() + delayTicks < deadline;
+	}
 
 	private static TimeSpan GetJitter() {
 		_random ??= new Random();
