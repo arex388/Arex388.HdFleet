@@ -216,6 +216,44 @@ public sealed class FreshPollGateTests {
 	}
 
 	[Fact]
+	public async Task RejectedStore_FailsTheLeader_ReleasesTheJoiner_AndTheNextCallerSends() {
+		var handler = new BlockingHandler("{ \"data\": [ { \"externalVehicleId\": \"V-1\" } ] }");
+
+		//	A consumer's size-limited cache rejects every entry without a Size,
+		//	and the gate's entries carry none. The single-account registration
+		//	shares the consumer's cache with the gate as the factory one does;
+		//	the factory itself also stores sizeless entries in that cache and
+		//	throws before any request reaches the gate, which is its own defect.
+		using var provider = TestClients.CreateProvider(handler, timeout: TimeSpan.FromSeconds(2), configure: services => services.AddMemoryCache(mco => mco.SizeLimit = 1024));
+
+		var client = provider.GetRequiredService<IHdFleetClient>();
+
+		var first = client.ListVehiclesAsync();
+
+		await handler.Started;
+
+		var second = client.ListVehiclesAsync();
+
+		handler.Release();
+
+		var leader = await first;
+		var joiner = await second;
+
+		leader.Status.Should().Be(ResponseStatus.Failed, "the cache refused the store, and the gate reports it rather than throwing");
+		leader.Errors.Should().Contain(e => e.Contains("InvalidOperationException", StringComparison.Ordinal), "the detail names the cache's exception");
+		leader.Metadata.Should().NotBeNull("the exchange itself succeeded, so its metadata stays on the response");
+		leader.Metadata?.RecordCount.Should().Be(1);
+		joiner.Status.Should().Be(ResponseStatus.Failed, "the joiner receives the leader's outcome, not a stranded wait");
+		joiner.FromCache.Should().BeTrue();
+		handler.Requests.Should().Be(1, "the joiner never sends on its own behalf");
+
+		var third = await client.ListVehiclesAsync();
+
+		third.Status.Should().Be(ResponseStatus.Failed, "the next caller sent afresh and the store was refused again");
+		handler.Requests.Should().Be(2, "nothing was cached and the in-flight entry was released, so the next caller sends rather than joining");
+	}
+
+	[Fact]
 	public async Task CacheHit_CarriesOriginalMetadata_MarkedFromCache() {
 		var client = TestClients.CreateWithJson("{ \"data\": [ { \"externalVehicleId\": \"V-1\" } ] }", out _);
 

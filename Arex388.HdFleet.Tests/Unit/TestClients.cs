@@ -19,8 +19,11 @@ internal static class TestClients {
 	public static ServiceProvider CreateProvider(
 		HttpMessageHandler handler,
 		string key = ApiKey,
-		TimeSpan? timeout = null) {
+		TimeSpan? timeout = null,
+		Action<IServiceCollection>? configure = null) {
 		var services = new ServiceCollection();
+
+		configure?.Invoke(services);
 
 		services.AddHdFleet(new HdFleetClientOptions {
 			Key = key,

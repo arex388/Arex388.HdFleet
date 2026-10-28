@@ -86,31 +86,56 @@ internal sealed class FreshPollGate(
 
 			try {
 				response = await send().ConfigureAwait(false);
-
-				return response;
 			} finally {
-				//	Store and release in one step, so a new caller can never
-				//	miss both the entry and the cached response. A failed
-				//	response is not cached, so the next caller sends afresh.
-				lock (_lock) {
-					if (response?.Success == true) {
-						//	Set echoes the value it stored; only the insertion
-						//	is wanted.
-						_ = _cache.Set(cacheKey, response, GetTtl(floor));
-					}
-
-					//	The entry is this leader's own, registered above.
-					_ = _inFlight.Remove(cacheKey);
-				}
-
 				//	The pipeline never throws; if it did, the joiners are
-				//	released as cancelled rather than left waiting. The source
-				//	is completed here only, so the result is never false.
-				_ = response is null
-					? leader.TrySetCanceled(CancellationToken.None)
-					: leader.TrySetResult(response);
+				//	released as cancelled rather than left waiting, and the
+				//	exception keeps propagating past the value Release returns.
+				response = Release(cacheKey, floor, response, leader);
+			}
+
+			return response;
+		}
+	}
+
+	//	The leader's cleanup. Store and release in one step, so a new caller can
+	//	never miss both the entry and the cached response; a failed response is
+	//	not cached, so the next caller sends afresh. The removal and the
+	//	completion run whatever the store does: a cache that rejects the entry
+	//	(a consumer's size-limited MemoryCache, whose entries must carry a Size
+	//	the gate does not invent) is the consumer's configuration, reported to
+	//	the leader and its joiners as Failed rather than thrown past the
+	//	never-throw contract, and never a stranded entry every later caller
+	//	joins until its own deadline fires.
+	private TResponse Release<TResponse>(
+		string cacheKey,
+		TimeSpan floor,
+		TResponse? response,
+		TaskCompletionSource<TResponse> leader)
+		where TResponse : ResponseBase<TResponse>, new() {
+		lock (_lock) {
+			try {
+				if (response?.Success == true) {
+					//	Set echoes the value it stored; only the insertion
+					//	is wanted.
+					_ = _cache.Set(cacheKey, response, GetTtl(floor));
+				}
+			} catch (Exception e) {
+				response = GetStoreFailed(response, e);
+			} finally {
+				//	The entry is this leader's own, registered by SendAsync.
+				_ = _inFlight.Remove(cacheKey);
 			}
 		}
+
+		//	The source is completed here only, so the result is never false.
+		_ = response is null
+			? leader.TrySetCanceled(CancellationToken.None)
+			: leader.TrySetResult(response);
+
+		//	A null response means the pipeline threw, and SendAsync's finally
+		//	lets that exception propagate, so the Cancelled value is never
+		//	returned to a caller.
+		return response ?? ResponseBase<TResponse>.Cancelled;
 	}
 
 	//	========================================================================
@@ -131,6 +156,22 @@ internal sealed class FreshPollGate(
 	//	this host and HD Fleet's never costs a 429.
 	private static TimeSpan GetTtl(
 		TimeSpan floor) => TimeSpan.FromTicks(floor.Ticks + (floor.Ticks / 20));
+
+	//	The store failed after a successful exchange, so the exchange's own
+	//	metadata and request id stay on the Failed response. The detail carries
+	//	the cache's exception as it is: MemoryCache's message names its own
+	//	configuration, not the entry's key, and the gate has no redaction of
+	//	its own to apply.
+	private static TResponse GetStoreFailed<TResponse>(
+		TResponse? response,
+		Exception exception)
+		where TResponse : ResponseBase<TResponse>, new() {
+		var failed = ResponseBase<TResponse>.FailedWith(ResponseStatus.Failed, "The fresh-poll cache rejected the response: " + exception.GetType().Name + ": " + exception.Message, response?.RequestId);
+
+		return response?.Metadata is null
+			? failed
+			: failed.WithMetadata(response.Metadata);
+	}
 
 	//	A joiner's wait for the leader's response, under the joiner's own token
 	//	only: cancelling it returns Cancelled to this caller and leaves the
