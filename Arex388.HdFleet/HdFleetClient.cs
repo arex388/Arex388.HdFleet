@@ -1,6 +1,5 @@
 using Arex388.HdFleet.Converters;
 using FluentValidation;
-using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.DependencyInjection;
 using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
@@ -51,7 +50,7 @@ internal sealed class HdFleetClient(
 	private readonly IValidator<ListLatestLocations.Request> _listLatestLocationsRequestValidator = services.GetRequiredService<IValidator<ListLatestLocations.Request>>();
 	private readonly IValidator<ListLocationHistory.Request> _listLocationHistoryRequestValidator = services.GetRequiredService<IValidator<ListLocationHistory.Request>>();
 	private readonly IValidator<ListVehicles.Request> _listVehiclesRequestValidator = services.GetRequiredService<IValidator<ListVehicles.Request>>();
-	private readonly FreshPollGate _freshPollGate = new(services.GetRequiredService<IMemoryCache>());
+	private readonly IFreshPollGate _freshPollGate = services.GetRequiredService<IFreshPollGate>();
 	private readonly HttpClient _httpClient = httpClient ?? services.GetRequiredService<IHttpClientFactory>().CreateClient(nameof(IHdFleetClient));
 	private readonly HdFleetClientOptions _options = options ?? services.GetRequiredService<HdFleetClientOptions>();
 
@@ -258,14 +257,11 @@ internal sealed class HdFleetClient(
 		return response;
 	}
 
-	//  The send behind every valid request: fresh-poll gate check → GET with a
-	//  per-request Authorization header under the options' deadline → capture
-	//  the status and headers → buffer the body → deserialize → map → gate
-	//  store. A null map result means "the API returned nothing usable"
-	//  (Failed); list mappers never return null, coalescing a null payload to
-	//  empty. A null freshPollFloor skips the gate — cursor continuations and
-	//  un-annotated endpoints are never gated. Every outcome after the send is
-	//  attempted carries ResponseMetadata.
+	//  A gated (fresh, cursor-less) request goes through the fresh-poll gate,
+	//  which answers from its cache inside the floor, joins a request already
+	//  on the wire for the same key and endpoint, or lets this caller send and
+	//  stores a successful response. A null freshPollFloor skips the gate —
+	//  cursor continuations and un-annotated endpoints are never gated.
 	private async Task<TResponse> SendCoreAsync<TRequest, TModel, TResponse>(
 		TRequest request,
 		string endpoint,
@@ -275,23 +271,47 @@ internal sealed class HdFleetClient(
 		where TRequest : RequestBase
 		where TModel : class
 		where TResponse : ResponseBase<TResponse>, new() {
-		if (freshPollFloor.HasValue) {
-			var cached = _freshPollGate.GetCached<TResponse>(_options.Key, endpoint);
-
-			if (cached is not null) {
-				return cached.WithFromCache();
-			}
-		}
-
 		//  The library owns the deadline: the named HttpClient's Timeout is
 		//  infinite, and this linked source covers the whole exchange — the
-		//  send, the retry handler's delays and the body transfer. When it
-		//  fires while the caller's token has not, the outcome is TimedOut
-		//  rather than Cancelled.
+		//  send, the retry handler's delays and the body transfer, and for a
+		//  gated request the wait on a request already in flight too, so a
+		//  joiner waits under its own deadline and a joiner promoted to leader
+		//  keeps the one it started with. When it fires while the caller's
+		//  token has not, the outcome is TimedOut rather than Cancelled.
 		using var deadline = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
 
 		deadline.CancelAfter(_options.EffectiveTimeout);
 
+		if (!freshPollFloor.HasValue) {
+			return await SendFreshAsync(request, endpoint, map, cancellationToken, deadline.Token).ConfigureAwait(false);
+		}
+
+		var response = await _freshPollGate.SendAsync(_options.Key, endpoint, freshPollFloor.Value, () => SendFreshAsync(request, endpoint, map, cancellationToken, deadline.Token), deadline.Token).ConfigureAwait(false);
+
+		//  The gate reports a fired wait token as Cancelled; when the caller's
+		//  own token has not fired, that was the deadline. No request was sent
+		//  on this caller's behalf, so there is no Metadata.
+		return response.Status == ResponseStatus.Cancelled && !cancellationToken.IsCancellationRequested && deadline.IsCancellationRequested
+			? ResponseBase<TResponse>.FailedWith(ResponseStatus.TimedOut, "The wait for the request already in flight exceeded the timeout.", null)
+			: response;
+	}
+
+	//  The send behind every valid request: GET with a per-request
+	//  Authorization header under the deadline token → capture the status and
+	//  headers → buffer the body → deserialize → map. A null map result means
+	//  "the API returned nothing usable" (Failed); list mappers never return
+	//  null, coalescing a null payload to empty. Every outcome after the send
+	//  is attempted carries ResponseMetadata. Never throws: every outcome is a
+	//  response, which the gate relies on to release its joiners.
+	private async Task<TResponse> SendFreshAsync<TRequest, TModel, TResponse>(
+		TRequest request,
+		string endpoint,
+		Func<TModel?, TResponse?> map,
+		CancellationToken cancellationToken,
+		CancellationToken deadlineToken)
+		where TRequest : RequestBase
+		where TModel : class
+		where TResponse : ResponseBase<TResponse>, new() {
 		HttpResponseMessage? httpResponse = null;
 		ResponseMetadata? arrived = null;
 		var stopwatch = new Stopwatch();
@@ -311,14 +331,14 @@ internal sealed class HdFleetClient(
 			//  arrive, so they are captured even when the body transfer then
 			//  fails or misses the deadline. The retry handler only inspects
 			//  the status code and Retry-After, so it is unaffected.
-			httpResponse = await _httpClient.SendAsync(httpRequest, HttpCompletionOption.ResponseHeadersRead, deadline.Token).ConfigureAwait(false);
+			httpResponse = await _httpClient.SendAsync(httpRequest, HttpCompletionOption.ResponseHeadersRead, deadlineToken).ConfigureAwait(false);
 			arrived = CaptureResponse(httpResponse);
 
 			//  The body is still fully buffered before anything reads it: async
 			//  stream deserialization can invoke the converters on partially
 			//  buffered JSON, where their unknown-property Skip() throws. A
 			//  complete buffer makes isFinalBlock true, so Skip is always safe.
-			var body = await ReadBodyAsync(httpResponse, deadline.Token).ConfigureAwait(false);
+			var body = await ReadBodyAsync(httpResponse, deadlineToken).ConfigureAwait(false);
 
 			stopwatch.Stop();
 
@@ -355,10 +375,6 @@ internal sealed class HdFleetClient(
 			response.RequestId = requestId;
 			response.Metadata = CompleteMetadata(arrived, stopwatch.Elapsed, (model as Page)?.RecordCount, null);
 
-			if (freshPollFloor.HasValue) {
-				_freshPollGate.Store(_options.Key, endpoint, response, freshPollFloor.Value);
-			}
-
 			return response;
 		} catch (Exception) when (cancellationToken.IsCancellationRequested) {
 			//  Any failure once the caller has cancelled is the caller's doing —
@@ -368,7 +384,7 @@ internal sealed class HdFleetClient(
 
 			return ResponseBase<TResponse>.Cancelled
 										  .WithMetadata(CompleteMetadata(arrived, stopwatch.Elapsed, null, null));
-		} catch (Exception e) when (deadline.IsCancellationRequested) {
+		} catch (Exception e) when (deadlineToken.IsCancellationRequested) {
 			//  The caller's token is not cancelled (the filter above), so the
 			//  deadline fired — and the same runtime caveat applies.
 			stopwatch.Stop();

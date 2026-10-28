@@ -1,5 +1,6 @@
 using Arex388.HdFleet;
 using FluentValidation;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 
 namespace Microsoft.Extensions.DependencyInjection;
 
@@ -18,6 +19,7 @@ public static class ServiceCollectionExtensions {
 		/// <returns>The services collection.</returns>
 		public IServiceCollection AddHdFleet() {
 			AddHdFleetHttpClient(services);
+			AddFreshPollGate(services);
 
 			return services.AddMemoryCache()
 						   .AddValidatorsFromAssemblyContaining<IHdFleetClient>(includeInternalTypes: true, lifetime: ServiceLifetime.Singleton)
@@ -33,6 +35,7 @@ public static class ServiceCollectionExtensions {
 		public IServiceCollection AddHdFleet(HdFleetClientOptions options) {
 			HdFleetClientOptions.ThrowIfInvalid(options);
 			AddHdFleetHttpClient(services);
+			AddFreshPollGate(services);
 
 			//  Deviation from Carmine: the single-account overload also
 			//  registers the memory cache — the fresh-poll gate needs
@@ -48,6 +51,12 @@ public static class ServiceCollectionExtensions {
 	//  ============================================================================
 	//  Utilities
 	//  ============================================================================
+
+	//  One gate per container, so every client on a key shares its in-flight
+	//  requests; the factory keeps one client per key and timeout, and two
+	//  clients on one key would otherwise coalesce nothing between them.
+	private static void AddFreshPollGate(
+		IServiceCollection services) => services.TryAddSingleton<IFreshPollGate, FreshPollGate>();
 
 	//  HttpClient.Timeout is disabled: the client applies
 	//  HdFleetClientOptions.Timeout per request through a linked token, so
