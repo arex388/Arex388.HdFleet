@@ -4,14 +4,14 @@ namespace Arex388.HdFleet;
 
 //	The fresh-poll gate: HD Fleet's cache TTL and rate limit are the same
 //	number, so one IMemoryCache-backed mechanism satisfies both — cache the
-//	successful response with TTL equal to the floor, and floor-driven 429s
-//	become structurally impossible. Every fresh (cursor-less) call goes through
-//	the gate: inside the floor → the cached response, marked FromCache;
-//	otherwise the first caller sends (the leader) and every caller that arrives
-//	while that request is on the wire awaits it (a joiner) and receives the
-//	same response, marked FromCache too. One gate per container, shared by
-//	every client, so two clients on one key coalesce as one client's callers
-//	do. Cursor continuations never touch the gate.
+//	successful response with a TTL of the floor plus a 5% margin (GetTtl), and
+//	floor-driven 429s become structurally impossible. Every fresh
+//	(cursor-less) call goes through the gate: inside the TTL → the cached
+//	response, marked FromCache; otherwise the first caller sends (the leader)
+//	and every caller that arrives while that request is on the wire awaits it
+//	(a joiner) and receives the same response, marked FromCache too. One gate
+//	per container, shared by every client, so two clients on one key coalesce
+//	as one client's callers do. Cursor continuations never touch the gate.
 internal interface IFreshPollGate {
 	ValueTask<TResponse> SendAsync<TResponse>(
 		string key,
